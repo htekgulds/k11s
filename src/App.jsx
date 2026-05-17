@@ -1,143 +1,169 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
-function NodesPage() {
-  const [nodes, setNodes] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+function createPage(title, cmd, cols, renderRow) {
+  return function () {
+    const [data, setData] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-  async function fetchNodes() {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await invoke("list_nodes");
-      setNodes(result);
-    } catch (e) {
-      setError(e);
-    } finally {
-      setLoading(false);
-    }
-  }
+    useEffect(() => {
+      setLoading(true);
+      setError(null);
+      invoke(cmd)
+        .then(setData)
+        .catch(setError)
+        .finally(() => setLoading(false));
+    }, []);
 
-  return (
-    <div className="nodes-page">
-      <h2>Kubernetes Nodes</h2>
-      <button onClick={fetchNodes} disabled={loading}>
-        {loading ? "Loading..." : "List Nodes"}
-      </button>
-
-      {error && <p className="error">{error}</p>}
-
-      {nodes.length > 0 && (
-        <table className="nodes-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Status</th>
-              <th>Role</th>
-              <th>Kubelet Version</th>
-              <th>OS Image</th>
-              <th>CPU</th>
-              <th>Memory</th>
-            </tr>
-          </thead>
-          <tbody>
-            {nodes.map((node) => (
-              <tr key={node.name}>
-                <td>{node.name}</td>
-                <td>
-                  <span className={`status-badge status-${node.status.toLowerCase()}`}>
-                    {node.status}
-                  </span>
-                </td>
-                <td>{node.role}</td>
-                <td>{node.kubelet_version}</td>
-                <td>{node.os_image}</td>
-                <td>{node.cpu}</td>
-                <td>{node.memory}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
-
-function HomePage({ greetMsg, name, setName, handleGreet }) {
-  return (
-    <>
-      <h1>Welcome to Tauri + React</h1>
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    return (
+      <div className="page">
+        <h2>{title}</h2>
+        {loading && <p className="loading">Loading...</p>}
+        {error && <p className="error">{error}</p>}
+        {!loading && data.length === 0 && !error && <p className="empty">No {title.toLowerCase()} found.</p>}
+        {data.length > 0 && (
+          <table className="data-table">
+            <thead>
+              <tr>{cols.map((c) => <th key={c}>{c}</th>)}</tr>
+            </thead>
+            <tbody>{data.map(renderRow)}</tbody>
+          </table>
+        )}
       </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleGreet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </>
-  );
+    );
+  };
 }
+
+const NodesPage = createPage(
+  "Nodes",
+  "list_nodes",
+  ["Name", "Status", "Role", "Kubelet", "OS Image", "CPU", "Memory"],
+  (n) => (
+    <tr key={n.name}>
+      <td>{n.name}</td>
+      <td><span className={`badge badge-${n.status.toLowerCase()}`}>{n.status}</span></td>
+      <td>{n.role}</td>
+      <td>{n.kubelet_version}</td>
+      <td>{n.os_image}</td>
+      <td>{n.cpu}</td>
+      <td>{n.memory}</td>
+    </tr>
+  )
+);
+
+const PodsPage = createPage(
+  "Pods",
+  "list_pods",
+  ["Name", "Namespace", "Status", "Node", "Containers", "Age"],
+  (p) => (
+    <tr key={`${p.namespace}/${p.name}`}>
+      <td>{p.name}</td>
+      <td>{p.namespace}</td>
+      <td><span className={`badge badge-${p.status.toLowerCase()}`}>{p.status}</span></td>
+      <td>{p.node}</td>
+      <td>{p.containers}</td>
+      <td>{p.age}</td>
+    </tr>
+  )
+);
+
+const DeploymentsPage = createPage(
+  "Deployments",
+  "list_deployments",
+  ["Name", "Namespace", "Desired", "Ready", "Up-to-Date", "Available", "Age"],
+  (d) => (
+    <tr key={`${d.namespace}/${d.name}`}>
+      <td>{d.name}</td>
+      <td>{d.namespace}</td>
+      <td>{d.desired}</td>
+      <td>{d.ready}</td>
+      <td>{d.up_to_date}</td>
+      <td>{d.available}</td>
+      <td>{d.age}</td>
+    </tr>
+  )
+);
+
+const StatefulSetsPage = createPage(
+  "StatefulSets",
+  "list_statefulsets",
+  ["Name", "Namespace", "Ready", "Desired", "Age"],
+  (s) => (
+    <tr key={`${s.namespace}/${s.name}`}>
+      <td>{s.name}</td>
+      <td>{s.namespace}</td>
+      <td>{s.ready}</td>
+      <td>{s.desired}</td>
+      <td>{s.age}</td>
+    </tr>
+  )
+);
+
+const ServicesPage = createPage(
+  "Services",
+  "list_services",
+  ["Name", "Namespace", "Type", "Cluster IP", "Ports", "Age"],
+  (s) => (
+    <tr key={`${s.namespace}/${s.name}`}>
+      <td>{s.name}</td>
+      <td>{s.namespace}</td>
+      <td><span className="badge badge-svc">{s.service_type}</span></td>
+      <td>{s.cluster_ip}</td>
+      <td>{s.ports}</td>
+      <td>{s.age}</td>
+    </tr>
+  )
+);
+
+const IngressesPage = createPage(
+  "Ingresses",
+  "list_ingresses",
+  ["Name", "Namespace", "Hosts", "Age"],
+  (i) => (
+    <tr key={`${i.namespace}/${i.name}`}>
+      <td>{i.name}</td>
+      <td>{i.namespace}</td>
+      <td>{i.hosts}</td>
+      <td>{i.age}</td>
+    </tr>
+  )
+);
+
+const pages = {
+  nodes: { label: "Nodes", cmp: NodesPage },
+  pods: { label: "Pods", cmp: PodsPage },
+  deployments: { label: "Deployments", cmp: DeploymentsPage },
+  statefulsets: { label: "StatefulSets", cmp: StatefulSetsPage },
+  services: { label: "Services", cmp: ServicesPage },
+  ingresses: { label: "Ingresses", cmp: IngressesPage },
+};
 
 function App() {
-  const [page, setPage] = useState("home");
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-
-  async function handleGreet() {
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const [page, setPage] = useState("nodes");
+  const Cmp = pages[page].cmp;
 
   return (
-    <main className="container">
-      <nav className="nav-bar">
-        <button
-          className={page === "home" ? "nav-active" : ""}
-          onClick={() => setPage("home")}
-        >
-          Home
-        </button>
-        <button
-          className={page === "nodes" ? "nav-active" : ""}
-          onClick={() => setPage("nodes")}
-        >
-          Nodes
-        </button>
-      </nav>
-
-      {page === "home" && (
-        <HomePage
-          greetMsg={greetMsg}
-          name={name}
-          setName={setName}
-          handleGreet={handleGreet}
-        />
-      )}
-      {page === "nodes" && <NodesPage />}
-    </main>
+    <div className="app-layout">
+      <aside className="sidebar">
+        <h1 className="sidebar-title">k10s</h1>
+        <nav>
+          {Object.entries(pages).map(([key, { label }]) => (
+            <button
+              key={key}
+              className={page === key ? "menu-active" : ""}
+              onClick={() => setPage(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      </aside>
+      <main className="content">
+        <Cmp />
+      </main>
+    </div>
   );
 }
 
