@@ -720,11 +720,24 @@ pub async fn get_pod_logs(
     Ok(PodLogsResponse { logs })
 }
 
+fn to_yaml_stripped<T: serde::Serialize>(obj: &T, omit: bool) -> Result<String, String> {
+    if omit {
+        let mut json = serde_json::to_value(obj).map_err(|e| e.to_string())?;
+        if let Some(meta) = json.get_mut("metadata").and_then(|m| m.as_object_mut()) {
+            meta.remove("managedFields");
+        }
+        serde_yaml::to_string(&json).map_err(|e| e.to_string())
+    } else {
+        serde_yaml::to_string(obj).map_err(|e| e.to_string())
+    }
+}
+
 pub async fn get_yaml(
     context: Option<String>,
     kind: String,
     name: String,
     namespace: Option<String>,
+    omit_managed_fields: bool,
 ) -> Result<YamlResponse, String> {
     let client = make_client(context).await?;
     let yaml = match kind.as_str() {
@@ -734,7 +747,7 @@ pub async fn get_yaml(
                 .get(&name)
                 .await
                 .map_err(|e| format!("Failed to get pod: {e}"))?;
-            serde_yaml::to_string(&obj).map_err(|e| e.to_string())?
+            to_yaml_stripped(&obj, omit_managed_fields)?
         }
         "deployments" | "Deployment" => {
             let ns = namespace.ok_or("namespace required")?;
@@ -742,7 +755,7 @@ pub async fn get_yaml(
                 .get(&name)
                 .await
                 .map_err(|e| format!("Failed to get deployment: {e}"))?;
-            serde_yaml::to_string(&obj).map_err(|e| e.to_string())?
+            to_yaml_stripped(&obj, omit_managed_fields)?
         }
         "statefulsets" | "StatefulSet" => {
             let ns = namespace.ok_or("namespace required")?;
@@ -750,7 +763,7 @@ pub async fn get_yaml(
                 .get(&name)
                 .await
                 .map_err(|e| format!("Failed to get statefulset: {e}"))?;
-            serde_yaml::to_string(&obj).map_err(|e| e.to_string())?
+            to_yaml_stripped(&obj, omit_managed_fields)?
         }
         "services" | "Service" => {
             let ns = namespace.ok_or("namespace required")?;
@@ -758,7 +771,7 @@ pub async fn get_yaml(
                 .get(&name)
                 .await
                 .map_err(|e| format!("Failed to get service: {e}"))?;
-            serde_yaml::to_string(&obj).map_err(|e| e.to_string())?
+            to_yaml_stripped(&obj, omit_managed_fields)?
         }
         "ingresses" | "Ingress" => {
             let ns = namespace.ok_or("namespace required")?;
@@ -766,7 +779,7 @@ pub async fn get_yaml(
                 .get(&name)
                 .await
                 .map_err(|e| format!("Failed to get ingress: {e}"))?;
-            serde_yaml::to_string(&obj).map_err(|e| e.to_string())?
+            to_yaml_stripped(&obj, omit_managed_fields)?
         }
         "configmaps" | "ConfigMap" => {
             let ns = namespace.ok_or("namespace required")?;
@@ -774,7 +787,7 @@ pub async fn get_yaml(
                 .get(&name)
                 .await
                 .map_err(|e| format!("Failed to get configmap: {e}"))?;
-            serde_yaml::to_string(&obj).map_err(|e| e.to_string())?
+            to_yaml_stripped(&obj, omit_managed_fields)?
         }
         "secrets" | "Secret" => {
             let ns = namespace.ok_or("namespace required")?;
@@ -782,7 +795,7 @@ pub async fn get_yaml(
                 .get(&name)
                 .await
                 .map_err(|e| format!("Failed to get secret: {e}"))?;
-            serde_yaml::to_string(&obj).map_err(|e| e.to_string())?
+            to_yaml_stripped(&obj, omit_managed_fields)?
         }
         "pvcs" | "PersistentVolumeClaim" => {
             let ns = namespace.ok_or("namespace required")?;
@@ -790,14 +803,14 @@ pub async fn get_yaml(
                 .get(&name)
                 .await
                 .map_err(|e| format!("Failed to get PVC: {e}"))?;
-            serde_yaml::to_string(&obj).map_err(|e| e.to_string())?
+            to_yaml_stripped(&obj, omit_managed_fields)?
         }
         "nodes" | "Node" => {
             let obj = Api::<Node>::all(client)
                 .get(&name)
                 .await
                 .map_err(|e| format!("Failed to get node: {e}"))?;
-            serde_yaml::to_string(&obj).map_err(|e| e.to_string())?
+            to_yaml_stripped(&obj, omit_managed_fields)?
         }
         other => return Err(format!("Unsupported kind: {other}")),
     };

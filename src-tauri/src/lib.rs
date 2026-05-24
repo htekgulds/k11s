@@ -68,8 +68,9 @@ async fn get_yaml(
     kind: String,
     name: String,
     namespace: Option<String>,
+    omit_managed_fields: bool,
 ) -> Result<k8s::YamlResponse, String> {
-    k8s::get_yaml(context, kind, name, namespace).await
+    k8s::get_yaml(context, kind, name, namespace, omit_managed_fields).await
 }
 
 #[tauri::command]

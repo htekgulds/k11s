@@ -115,12 +115,13 @@ export function DetailView({ obj, type, allData, clusterId, onNavigate }) {
   const [subTab, setSubTab] = useState("info");
   const [cache, setCache] = useState({});
   const [fetching, setFetching] = useState({});
+  const [hideMF, setHideMF] = useState(true);
   const graph = buildGraph(obj, type, allData);
   const related = getRelated(obj, type, allData);
   const dtabs = DETAIL_TABS_MAP[type] || DETAIL_TABS_MAP.default;
 
   const load = useCallback(
-    async (tab, force = false) => {
+    async (tab, force = false, omitMF = false) => {
       let skipped = false;
       setCache((prev) => {
         if (!force && prev[tab]) skipped = true;
@@ -148,7 +149,7 @@ export function DetailView({ obj, type, allData, clusterId, onNavigate }) {
         } else if (tab === "yaml") {
           res = await k8sInvoke(
             "get_yaml",
-            { kind: type, name: obj.name, namespace: obj.namespace || null },
+            { kind: type, name: obj.name, namespace: obj.namespace || null, omitManagedFields: omitMF },
             clusterId,
           );
         } else if (tab === "events") {
@@ -174,8 +175,8 @@ export function DetailView({ obj, type, allData, clusterId, onNavigate }) {
   useEffect(() => {
     setCache({});
     setSubTab("info");
-    load("yaml", true);
-  }, [obj.name, clusterId, load]);
+    load("yaml", true, hideMF);
+  }, [obj.name, clusterId, load]); // eslint-disable-line
 
   const goTab = (tab) => {
     setSubTab(tab);
@@ -521,8 +522,24 @@ export function DetailView({ obj, type, allData, clusterId, onNavigate }) {
               </span>
               <button
                 type="button"
+                onClick={() => { const next = !hideMF; setHideMF(next); setCache((p) => ({ ...p, yaml: undefined })); load("yaml", true, next); }}
                 style={{
                   marginLeft: "auto",
+                  background: "none",
+                  border: "1px solid #0e1f2e",
+                  borderRadius: 3,
+                  color: hideMF ? "#1e3a52" : "#7dd3fc",
+                  cursor: "pointer",
+                  padding: "2px 7px",
+                  ...mono,
+                  fontSize: "0.67rem",
+                }}
+              >
+                {hideMF ? "show managed fields" : "hide managed fields"}
+              </button>
+              <button
+                type="button"
+                style={{
                   background: "none",
                   border: "1px solid #0e1f2e",
                   borderRadius: 3,
