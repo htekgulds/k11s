@@ -56,7 +56,8 @@ export function TopBar({
       <div style={{ display: "flex", flex: 1, overflow: "hidden", height: "100%", minWidth: 0 }}>
         {detailTabs.map((tab) => {
           const isAct = clusterState.activeTab === tab.id;
-          const tabErr = ["CrashLoopBackOff", "Error", "NotReady"].includes(tab.obj?.status);
+          const tabErr = tab.tabErr;
+          const tabColor = tab.color || "#39ff8a";
 
           return (
             <button
@@ -69,7 +70,8 @@ export function TopBar({
                 gap: 5,
                 background: isAct ? "#060a10" : "none",
                 border: "none",
-                borderBottom: isAct ? "2px solid #39ff8a" : "2px solid transparent",
+                borderBottom: isAct ? `2px solid ${tabColor}` : "2px solid transparent",
+                borderLeft: `2px solid ${isAct ? tabColor : "transparent"}`,
                 borderRight: "1px solid #080e18",
                 color: isAct ? "#ccd" : tabErr ? "#ff5555" : "#2d4a6a",
                 padding: "0 12px",
@@ -83,6 +85,16 @@ export function TopBar({
                 transition: "all 0.08s",
               }}
             >
+              <span
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: "50%",
+                  background: tabColor,
+                  flexShrink: 0,
+                  opacity: isAct ? 1 : 0.65,
+                }}
+              />
               <span style={{ fontSize: "0.68rem", opacity: 0.65 }}>{tab.icon}</span>
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{tab.label}</span>
               {tabErr && (

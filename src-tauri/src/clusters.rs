@@ -56,19 +56,9 @@ fn infer_region(context: &str, provider: &str) -> String {
     }
 }
 
-fn env_color(env: &str) -> &'static str {
-    match env {
-        "prod" => "#ff4d4d",
-        "staging" => "#f5c518",
-        _ => "#39ff8a",
-    }
-}
-
 pub fn list_clusters() -> Result<Vec<ClusterInfo>, String> {
     let kc = Kubeconfig::read()
         .map_err(|e| format!("Failed to read kubeconfig: {e}"))?;
-
-    let current = kc.current_context.clone().unwrap_or_default();
 
     let clusters: Vec<ClusterInfo> = kc
         .contexts
@@ -84,11 +74,7 @@ pub fn list_clusters() -> Result<Vec<ClusterInfo>, String> {
             let env = infer_env(&name).to_string();
             let provider = infer_provider(&context).to_string();
             let region = infer_region(&context, &provider);
-            let color = if name == current {
-                env_color(&env).to_string()
-            } else {
-                COLORS[i % COLORS.len()].to_string()
-            };
+            let color = COLORS[i % COLORS.len()].to_string();
             ClusterInfo {
                 label: name.clone(),
                 id: name,

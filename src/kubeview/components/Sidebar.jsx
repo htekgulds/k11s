@@ -1,7 +1,9 @@
 import { RESOURCE_TYPES } from "../constants";
 import { mono } from "../theme";
 
-export function Sidebar({ clusterState, data, loading, onClustersClick, onOpenResource }) {
+export function Sidebar({ clusterState, activeCluster, data, loading, onClustersClick, onOpenResource }) {
+  const clustersColor = activeCluster?.color || "#39ff8a";
+  const onClustersView = !clusterState.activeResource && !clusterState.activeTab;
   return (
     <div
       style={{
@@ -21,14 +23,10 @@ export function Sidebar({ clusterState, data, loading, onClustersClick, onOpenRe
           display: "flex",
           alignItems: "center",
           gap: 7,
-          background:
-            !clusterState.activeResource && !clusterState.activeTab ? "#080e18" : "none",
+          background: onClustersView ? "#080e18" : "none",
           border: "none",
-          borderLeft:
-            !clusterState.activeResource && !clusterState.activeTab
-              ? "2px solid #39ff8a"
-              : "2px solid transparent",
-          color: !clusterState.activeResource && !clusterState.activeTab ? "#bdd" : "#1e3a52",
+          borderLeft: onClustersView ? `2px solid ${clustersColor}` : "2px solid transparent",
+          color: onClustersView ? "#bdd" : "#1e3a52",
           padding: "8px 10px",
           cursor: "pointer",
           ...mono,
@@ -58,8 +56,9 @@ export function Sidebar({ clusterState, data, loading, onClustersClick, onOpenRe
         const hasErr = (data[rt.key] || []).some((r) =>
           ["CrashLoopBackOff", "NotReady", "Error"].includes(r.status),
         );
-        const isAct = clusterState.activeResource === rt.key && !clusterState.activeTab;
-        const isOpen = clusterState.activeResource === rt.key;
+        const isAct =
+          clusterState.activeResource === rt.key && !clusterState.activeTab;
+        const isOpen = clusterState.activeResource === rt.key && !clusterState.activeTab;
         return (
           <button
             key={rt.key}
@@ -71,7 +70,11 @@ export function Sidebar({ clusterState, data, loading, onClustersClick, onOpenRe
               justifyContent: "space-between",
               background: isAct ? "#080e18" : "none",
               border: "none",
-              borderLeft: isAct ? "2px solid #39ff8a" : isOpen ? "2px solid #1e3a52" : "2px solid transparent",
+              borderLeft: isAct
+                ? `2px solid ${clustersColor}`
+                : isOpen
+                  ? `2px solid ${clustersColor}55`
+                  : "2px solid transparent",
               color: isAct ? "#bdd" : isOpen ? "#4a7a8a" : "#2d4a6a",
               padding: "6px 9px 6px 10px",
               cursor: "pointer",
@@ -94,7 +97,7 @@ export function Sidebar({ clusterState, data, loading, onClustersClick, onOpenRe
             <span
               style={{
                 fontSize: "0.62rem",
-                color: hasErr ? "#ff4d4d" : isAct ? "#39ff8a" : isOpen ? "#2d4a6a" : "#0e1f2e",
+                color: hasErr ? "#ff4d4d" : isAct ? clustersColor : isOpen ? "#2d4a6a" : "#0e1f2e",
               }}
             >
               {loading[rt.key] ? "…" : count || ""}

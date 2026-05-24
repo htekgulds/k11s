@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { k8sInvoke, listClusters } from "./api";
-import { defaultClusterState, RESOURCE_TYPES } from "./constants";
+import { defaultNavState, RESOURCE_TYPES } from "./constants";
 import { ClustersTab } from "./components/ClustersTab";
 import { CommandPalette } from "./components/CommandPalette";
 import { DetailView } from "./components/DetailView";
@@ -9,16 +9,26 @@ import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { TopBar } from "./components/TopBar";
 import { mono } from "./theme";
+import { assignClusterColors, detailTabId, getClusterColor } from "./utils/clusterColors";
 
 function detailTabsOnly(tabs) {
   return tabs.filter((t) => t.type === "detail");
+}
+
+function resolveDetailObject(tab, data) {
+  if (!tab || tab.type !== "detail") return null;
+  const items = data[tab.resourceType] || [];
+  if (tab.resourceType === "nodes") {
+    return items.find((r) => r.name === tab.name) || null;
+  }
+  return items.find((r) => r.name === tab.name && r.namespace === tab.namespace) || null;
 }
 
 export default function KubeClient() {
   const [clusters, setClusters] = useState([]);
   const [clustersError, setClustersError] = useState(null);
   const [activeClusterId, setActiveClusterId] = useState(null);
-  const [clusterStates, setClusterStates] = useState({});
+  const [nav, setNav] = useState(defaultNavState);
   const [clusterData, setClusterData] = useState({});
   const [clusterLoading, setClusterLoading] = useState({});
   const [tabFilters, setTabFilters] = useState({});
@@ -27,32 +37,19 @@ export default function KubeClient() {
   const [clock, setClock] = useState(() => new Date());
   const cmdRef = useRef(null);
 
-  const rawCs = clusterStates[activeClusterId] || defaultClusterState();
-  const cs = {
-    ...rawCs,
-    tabs: detailTabsOnly(rawCs.tabs),
-    activeTab: rawCs.activeTab === "clusters" ? null : rawCs.activeTab,
-  };
   const data = clusterData[activeClusterId] || {};
   const loading = clusterLoading[activeClusterId] || {};
 
-  const setCS = useCallback(
-    (upd) => {
-      if (!activeClusterId) return;
-      setClusterStates((prev) => ({
-        ...prev,
-        [activeClusterId]:
-          typeof upd === "function" ? upd(prev[activeClusterId] || defaultClusterState()) : { ...cs, ...upd },
-      }));
-    },
-    [activeClusterId, cs],
-  );
+  const setTabs = useCallback((u) => {
+    setNav((n) => ({ ...n, tabs: typeof u === "function" ? u(n.tabs) : u }));
+  }, []);
 
-  const setTabs = useCallback((u) => setCS((s) => ({ ...s, tabs: typeof u === "function" ? u(s.tabs) : u })), [setCS]);
-  const setActiveTab = useCallback(
-    (u) => setCS((s) => ({ ...s, activeTab: typeof u === "function" ? u(s.activeTab) : u })),
-    [setCS],
-  );
+  const setActiveTab = useCallback((u) => {
+    setNav((n) => ({
+      ...n,
+      activeTab: typeof u === "function" ? u(n.activeTab) : u,
+    }));
+  }, []);
 
   const fetchResource = useCallback(async (type, cid) => {
     const clusterId = cid || activeClusterId;
@@ -86,23 +83,23 @@ export default function KubeClient() {
   useEffect(() => {
     listClusters()
       .then((list) => {
-        setClusters(list);
+        const colored = assignClusterColors(list);
+        setClusters(colored);
         setClustersError(null);
-        const initial = list[0]?.id;
-        if (initial) {
-          setActiveClusterId(initial);
-          setClusterStates(
-            Object.fromEntries(list.map((c) => [c.id, defaultClusterState()])),
-          );
-        }
+        const initial = colored[0]?.id;
+        if (initial) setActiveClusterId(initial);
       })
       .catch((err) => setClustersError(String(err)));
   }, []);
 
   useEffect(() => {
-    if (!activeClusterId) return;
-    RESOURCE_TYPES.forEach((rt) => fetchResource(rt.key, activeClusterId));
-  }, [activeClusterId, fetchResource]);
+    const clusterIds = new Set(
+      [activeClusterId, ...nav.tabs.filter((t) => t.type === "detail").map((t) => t.clusterId)].filter(
+        Boolean,
+      ),
+    );
+    clusterIds.forEach((cid) => RESOURCE_TYPES.forEach((rt) => fetchResource(rt.key, cid)));
+  }, [activeClusterId, nav.tabs, fetchResource]);
 
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 1000);
@@ -111,35 +108,33 @@ export default function KubeClient() {
 
   const switchCluster = useCallback((cid) => {
     setActiveClusterId(cid);
-    setClusterStates((prev) => ({ ...prev, [cid]: prev[cid] || defaultClusterState() }));
+  }, []);
+
+  const switchClusterFromPage = useCallback((cid) => {
+    setActiveClusterId(cid);
+    setNav((n) => ({ ...n, activeResource: "nodes", activeTab: null }));
   }, []);
 
   const openResourceView = useCallback(
     (resType, cid) => {
       const clusterId = cid || activeClusterId;
       if (!clusterId) return;
+      if (clusterId !== activeClusterId) setActiveClusterId(clusterId);
       fetchResource(resType, clusterId);
-      if (clusterId !== activeClusterId) switchCluster(clusterId);
-      setClusterStates((prev) => {
-        const state = prev[clusterId] || defaultClusterState();
-        return {
-          ...prev,
-          [clusterId]: {
-            ...state,
-            tabs: detailTabsOnly(state.tabs),
-            activeResource: resType,
-            activeTab: null,
-          },
-        };
-      });
+      setNav((n) => ({ ...n, activeResource: resType, activeTab: null }));
     },
-    [activeClusterId, fetchResource, switchCluster],
+    [activeClusterId, fetchResource],
   );
 
   const openDetail = useCallback(
-    (resourceType, obj) => {
-      const id = `detail·${resourceType}·${obj.name}`;
+    (resourceType, obj, clusterId) => {
+      const cid = clusterId || activeClusterId;
+      if (!cid) return;
+      const ns = obj.namespace || "";
+      const id = detailTabId(cid, resourceType, ns, obj.name);
       const lbl = obj.name.length > 16 ? `${obj.name.slice(0, 14)}…` : obj.name;
+      const color = getClusterColor(clusters, cid);
+
       setTabs((prev) => {
         if (prev.find((t) => t.id === id)) return prev;
         return [
@@ -147,8 +142,11 @@ export default function KubeClient() {
           {
             id,
             type: "detail",
+            clusterId: cid,
+            color,
             resourceType,
-            obj,
+            name: obj.name,
+            namespace: ns,
             label: lbl,
             icon: RESOURCE_TYPES.find((r) => r.key === resourceType)?.icon,
           },
@@ -156,7 +154,18 @@ export default function KubeClient() {
       });
       setActiveTab(id);
     },
-    [setTabs, setActiveTab],
+    [activeClusterId, clusters, setTabs, setActiveTab],
+  );
+
+  const handleTabClick = useCallback(
+    (id) => {
+      const tab = nav.tabs.find((t) => t.id === id);
+      setActiveTab(id);
+      if (tab?.clusterId && tab.clusterId !== activeClusterId) {
+        setActiveClusterId(tab.clusterId);
+      }
+    },
+    [nav.tabs, activeClusterId, setActiveTab],
   );
 
   const closeTab = useCallback(
@@ -169,16 +178,26 @@ export default function KubeClient() {
   );
 
   const goToClusters = useCallback(() => {
-    setCS((s) => ({ ...s, activeTab: null, activeResource: null }));
-  }, [setCS]);
+    setNav((n) => ({ ...n, activeTab: null, activeResource: null }));
+  }, []);
 
   const tfKey = (resType) => `${activeClusterId}·${resType}`;
   const getTF = (resType) => tabFilters[tfKey(resType)] || { filter: "", namespace: "All" };
   const setTF = (resType, patch) =>
     setTabFilters((prev) => ({ ...prev, [tfKey(resType)]: { ...getTF(resType), ...patch } }));
 
-  const visibleTabs = detailTabsOnly(cs.tabs);
-  const activeDetailTab = cs.tabs.find((t) => t.id === cs.activeTab && t.type === "detail");
+  const visibleTabs = detailTabsOnly(nav.tabs).map((tab) => {
+    const tabData = clusterData[tab.clusterId] || {};
+    const obj = resolveDetailObject(tab, tabData);
+    return {
+      ...tab,
+      tabErr: obj && ["CrashLoopBackOff", "Error", "NotReady"].includes(obj.status),
+    };
+  });
+  const activeDetailTab = nav.tabs.find((t) => t.id === nav.activeTab && t.type === "detail");
+  const tabClusterId = activeDetailTab?.clusterId || activeClusterId;
+  const tabData = clusterData[tabClusterId] || {};
+  const detailObj = resolveDetailObject(activeDetailTab, tabData);
   const activeCluster = clusters.find((c) => c.id === activeClusterId);
 
   const cmdItems = [
@@ -262,6 +281,85 @@ export default function KubeClient() {
     );
   }
 
+  const renderMain = () => {
+    if (activeDetailTab && detailObj) {
+      return (
+        <DetailView
+          key={`${activeDetailTab.id}-${tabClusterId}`}
+          obj={detailObj}
+          type={activeDetailTab.resourceType}
+          allData={tabData}
+          clusterId={tabClusterId}
+          onNavigate={(rt, obj) => openDetail(rt, obj, tabClusterId)}
+        />
+      );
+    }
+
+    if (activeDetailTab && !detailObj) {
+      const rt = activeDetailTab.resourceType;
+      const missingData = clusterData[activeDetailTab.clusterId] || {};
+      const missingLoading = clusterLoading[activeDetailTab.clusterId] || {};
+      const tf = tabFilters[`${activeDetailTab.clusterId}·${rt}`] || { filter: "", namespace: "All" };
+      const ns = ["All", ...new Set((missingData[rt] || []).map((r) => r.namespace).filter(Boolean))];
+      return (
+        <ResourceListTab
+          key={`${activeDetailTab.id}-missing`}
+          type={rt}
+          data={missingData[rt] || []}
+          loading={missingLoading[rt]}
+          onSelect={(row) => openDetail(rt, row, activeDetailTab.clusterId)}
+          filter={tf.filter}
+          setFilter={(v) =>
+            setTabFilters((prev) => ({
+              ...prev,
+              [`${activeDetailTab.clusterId}·${rt}`]: { ...tf, filter: v },
+            }))
+          }
+          namespace={tf.namespace}
+          setNamespace={(v) =>
+            setTabFilters((prev) => ({
+              ...prev,
+              [`${activeDetailTab.clusterId}·${rt}`]: { ...tf, namespace: v },
+            }))
+          }
+          namespaces={ns}
+          onRefresh={() => fetchResource(rt, activeDetailTab.clusterId)}
+        />
+      );
+    }
+
+    if (nav.activeResource) {
+      const rt = nav.activeResource;
+      const tf = getTF(rt);
+      const ns = ["All", ...new Set((data[rt] || []).map((r) => r.namespace).filter(Boolean))];
+      return (
+        <ResourceListTab
+          key={rt}
+          type={rt}
+          data={data[rt] || []}
+          loading={loading[rt]}
+          onSelect={(row) => openDetail(rt, row, activeClusterId)}
+          filter={tf.filter}
+          setFilter={(v) => setTF(rt, { filter: v })}
+          namespace={tf.namespace}
+          setNamespace={(v) => setTF(rt, { namespace: v })}
+          namespaces={ns}
+          onRefresh={() => fetchResource(rt)}
+        />
+      );
+    }
+
+    return (
+      <ClustersTab
+        clusters={clusters}
+        activeClusterId={activeClusterId}
+        allClusterData={clusterData}
+        onSwitch={switchClusterFromPage}
+        onOpenResource={openResourceView}
+      />
+    );
+  };
+
   return (
     <div
       style={{
@@ -290,8 +388,8 @@ export default function KubeClient() {
         clusters={clusters}
         activeCluster={activeCluster}
         onSwitchCluster={switchCluster}
-        clusterState={{ ...cs, tabs: visibleTabs }}
-        onTabClick={setActiveTab}
+        clusterState={{ ...nav, tabs: visibleTabs }}
+        onTabClick={handleTabClick}
         onCloseTab={closeTab}
         onOpenPalette={() => setCmdOpen(true)}
         clock={clock}
@@ -299,7 +397,8 @@ export default function KubeClient() {
 
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <Sidebar
-          clusterState={cs}
+          clusterState={nav}
+          activeCluster={activeCluster}
           data={data}
           loading={loading}
           onClustersClick={goToClusters}
@@ -307,47 +406,7 @@ export default function KubeClient() {
         />
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div style={{ flex: 1, overflow: "hidden" }}>
-            {activeDetailTab ? (
-              <DetailView
-                key={`${activeDetailTab.id}-${activeClusterId}`}
-                obj={activeDetailTab.obj}
-                type={activeDetailTab.resourceType}
-                allData={data}
-                clusterId={activeClusterId}
-                onNavigate={(rt, obj) => openDetail(rt, obj)}
-              />
-            ) : cs.activeResource ? (
-              (() => {
-                const rt = cs.activeResource;
-                const tf = getTF(rt);
-                const ns = ["All", ...new Set((data[rt] || []).map((r) => r.namespace).filter(Boolean))];
-                return (
-                  <ResourceListTab
-                    key={rt}
-                    type={rt}
-                    data={data[rt] || []}
-                    loading={loading[rt]}
-                    onSelect={(row) => openDetail(rt, row)}
-                    filter={tf.filter}
-                    setFilter={(v) => setTF(rt, { filter: v })}
-                    namespace={tf.namespace}
-                    setNamespace={(v) => setTF(rt, { namespace: v })}
-                    namespaces={ns}
-                    onRefresh={() => fetchResource(rt)}
-                  />
-                );
-              })()
-            ) : (
-              <ClustersTab
-                clusters={clusters}
-                activeClusterId={activeClusterId}
-                allClusterData={clusterData}
-                onSwitch={switchCluster}
-                onOpenResource={openResourceView}
-              />
-            )}
-          </div>
+          <div style={{ flex: 1, overflow: "hidden" }}>{renderMain()}</div>
         </div>
       </div>
 

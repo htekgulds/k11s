@@ -31,7 +31,7 @@ export const DETAIL_TABS_MAP = {
   default: ["info", "yaml", "graph"],
 };
 
-export const defaultClusterState = () => ({
+export const defaultNavState = () => ({
   tabs: [],
   activeTab: null,
   activeResource: null,
