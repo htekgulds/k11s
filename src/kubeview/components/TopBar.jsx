@@ -2,6 +2,7 @@ import { mono, ENV_STYLE } from "../theme";
 
 export function TopBar({ activeCluster, clusterState, onTabClick, onCloseTab, onOpenPalette, clock }) {
   const envStyle = ENV_STYLE[activeCluster?.env] || ENV_STYLE.dev;
+  const detailTabs = clusterState.tabs.filter((t) => t.type === "detail");
 
   return (
     <div
@@ -78,15 +79,9 @@ export function TopBar({ activeCluster, clusterState, onTabClick, onCloseTab, on
         </span>
       </div>
       <div style={{ display: "flex", flex: 1, overflow: "hidden", height: "100%", minWidth: 0 }}>
-        {clusterState.tabs.map((tab) => {
+        {detailTabs.map((tab) => {
           const isAct = clusterState.activeTab === tab.id;
-          const isClusters = tab.id === "clusters";
-          const isRes = tab.type === "resource";
-          const isDet = tab.type === "detail";
-          const tabErr = isDet && ["CrashLoopBackOff", "Error", "NotReady"].includes(tab.obj?.status);
-          const resErr =
-            isRes &&
-            tab.hasErr;
+          const tabErr = ["CrashLoopBackOff", "Error", "NotReady"].includes(tab.obj?.status);
 
           return (
             <button
@@ -101,7 +96,7 @@ export function TopBar({ activeCluster, clusterState, onTabClick, onCloseTab, on
                 border: "none",
                 borderBottom: isAct ? "2px solid #39ff8a" : "2px solid transparent",
                 borderRight: "1px solid #080e18",
-                color: isAct ? "#ccd" : tabErr || resErr ? "#ff5555" : "#2d4a6a",
+                color: isAct ? "#ccd" : tabErr ? "#ff5555" : "#2d4a6a",
                 padding: "0 12px",
                 height: "100%",
                 cursor: "pointer",
@@ -113,10 +108,9 @@ export function TopBar({ activeCluster, clusterState, onTabClick, onCloseTab, on
                 transition: "all 0.08s",
               }}
             >
-              {isClusters && <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>⬡</span>}
-              {(isRes || isDet) && <span style={{ fontSize: "0.68rem", opacity: 0.65 }}>{tab.icon}</span>}
+              <span style={{ fontSize: "0.68rem", opacity: 0.65 }}>{tab.icon}</span>
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{tab.label}</span>
-              {(resErr || tabErr) && (
+              {tabErr && (
                 <span
                   style={{
                     width: 4,
@@ -128,22 +122,20 @@ export function TopBar({ activeCluster, clusterState, onTabClick, onCloseTab, on
                   }}
                 />
               )}
-              {!isClusters && (
-                <span
-                  role="presentation"
-                  onClick={(e) => onCloseTab(tab.id, e)}
-                  style={{ color: "#0e1f2e", fontSize: "0.61rem", marginLeft: 1, flexShrink: 0, lineHeight: 1 }}
-                  onMouseEnter={(e) => {
-                    e.stopPropagation();
-                    e.currentTarget.style.color = "#ff4d4d";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = "#0e1f2e";
-                  }}
-                >
-                  ✕
-                </span>
-              )}
+              <span
+                role="presentation"
+                onClick={(e) => onCloseTab(tab.id, e)}
+                style={{ color: "#0e1f2e", fontSize: "0.61rem", marginLeft: 1, flexShrink: 0, lineHeight: 1 }}
+                onMouseEnter={(e) => {
+                  e.stopPropagation();
+                  e.currentTarget.style.color = "#ff4d4d";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "#0e1f2e";
+                }}
+              >
+                ✕
+              </span>
             </button>
           );
         })}

@@ -32,6 +32,7 @@ export const DETAIL_TABS_MAP = {
 };
 
 export const defaultClusterState = () => ({
-  tabs: [{ id: "clusters", type: "clusters", label: "Clusters", icon: "⬡", pinned: true }],
-  activeTab: "clusters",
+  tabs: [],
+  activeTab: null,
+  activeResource: null,
 });

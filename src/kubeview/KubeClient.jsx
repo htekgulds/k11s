@@ -10,8 +10,8 @@ import { StatusBar } from "./components/StatusBar";
 import { TopBar } from "./components/TopBar";
 import { mono } from "./theme";
 
-function hasResourceErrors(items) {
-  return (items || []).some((r) => ["CrashLoopBackOff", "NotReady", "Error"].includes(r.status));
+function detailTabsOnly(tabs) {
+  return tabs.filter((t) => t.type === "detail");
 }
 
 export default function KubeClient() {
@@ -27,7 +27,12 @@ export default function KubeClient() {
   const [clock, setClock] = useState(() => new Date());
   const cmdRef = useRef(null);
 
-  const cs = clusterStates[activeClusterId] || defaultClusterState();
+  const rawCs = clusterStates[activeClusterId] || defaultClusterState();
+  const cs = {
+    ...rawCs,
+    tabs: detailTabsOnly(rawCs.tabs),
+    activeTab: rawCs.activeTab === "clusters" ? null : rawCs.activeTab,
+  };
   const data = clusterData[activeClusterId] || {};
   const loading = clusterLoading[activeClusterId] || {};
 
@@ -109,21 +114,23 @@ export default function KubeClient() {
     setClusterStates((prev) => ({ ...prev, [cid]: prev[cid] || defaultClusterState() }));
   }, []);
 
-  const openResourceTab = useCallback(
+  const openResourceView = useCallback(
     (resType, cid) => {
       const clusterId = cid || activeClusterId;
       if (!clusterId) return;
-      const id = `res·${resType}`;
-      const rt = RESOURCE_TYPES.find((r) => r.key === resType);
       fetchResource(resType, clusterId);
       if (clusterId !== activeClusterId) switchCluster(clusterId);
       setClusterStates((prev) => {
         const state = prev[clusterId] || defaultClusterState();
-        const already = state.tabs.find((t) => t.id === id);
-        const newTabs = already
-          ? state.tabs
-          : [...state.tabs, { id, type: "resource", resourceType: resType, label: rt?.label || resType, icon: rt?.icon }];
-        return { ...prev, [clusterId]: { ...state, tabs: newTabs, activeTab: id } };
+        return {
+          ...prev,
+          [clusterId]: {
+            ...state,
+            tabs: detailTabsOnly(state.tabs),
+            activeResource: resType,
+            activeTab: null,
+          },
+        };
       });
     },
     [activeClusterId, fetchResource, switchCluster],
@@ -156,39 +163,40 @@ export default function KubeClient() {
     (id, e) => {
       e.stopPropagation();
       setTabs((prev) => prev.filter((t) => t.id !== id));
-      setActiveTab((prev) => (prev === id ? "clusters" : prev));
+      setActiveTab((prev) => (prev === id ? null : prev));
     },
     [setTabs, setActiveTab],
   );
+
+  const goToClusters = useCallback(() => {
+    setCS((s) => ({ ...s, activeTab: null, activeResource: null }));
+  }, [setCS]);
 
   const tfKey = (resType) => `${activeClusterId}·${resType}`;
   const getTF = (resType) => tabFilters[tfKey(resType)] || { filter: "", namespace: "All" };
   const setTF = (resType, patch) =>
     setTabFilters((prev) => ({ ...prev, [tfKey(resType)]: { ...getTF(resType), ...patch } }));
 
-  const activeTabData = cs.tabs.find((t) => t.id === cs.activeTab);
+  const visibleTabs = detailTabsOnly(cs.tabs);
+  const activeDetailTab = cs.tabs.find((t) => t.id === cs.activeTab && t.type === "detail");
   const activeCluster = clusters.find((c) => c.id === activeClusterId);
 
-  const tabsWithErrors = cs.tabs.map((tab) => {
-    if (tab.type === "resource") {
-      return { ...tab, hasErr: hasResourceErrors(data[tab.resourceType]) };
-    }
-    return tab;
-  });
-
   const cmdItems = [
-    { label: "Go to Clusters overview", fn: () => setActiveTab("clusters") },
+    { label: "Go to Clusters overview", fn: () => goToClusters() },
     ...clusters
       .filter((c) => c.id !== activeClusterId)
       .map((c) => ({ label: `Switch to ${c.label}`, fn: () => switchCluster(c.id) })),
-    ...RESOURCE_TYPES.map((r) => ({ label: `Open ${r.label}`, fn: () => openResourceTab(r.key) })),
+    ...RESOURCE_TYPES.map((r) => ({ label: `Open ${r.label}`, fn: () => openResourceView(r.key) })),
     {
       label: "Refresh all",
       fn: () => RESOURCE_TYPES.forEach((rt) => fetchResource(rt.key)),
     },
     {
-      label: "Close all non-pinned tabs",
-      fn: () => setTabs((prev) => prev.filter((t) => t.pinned || t.id === "clusters")),
+      label: "Close all tabs",
+      fn: () => {
+        setTabs(() => []);
+        setActiveTab(null);
+      },
     },
   ].filter((i) => !cmdQuery || i.label.toLowerCase().includes(cmdQuery.toLowerCase()));
 
@@ -205,12 +213,12 @@ export default function KubeClient() {
       }
       if (document.activeElement === document.body) {
         const rt = RESOURCE_TYPES.find((r) => r.shortcut === e.key.toUpperCase());
-        if (rt) openResourceTab(rt.key);
+        if (rt) openResourceView(rt.key);
       }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [openResourceTab]);
+  }, [openResourceView]);
 
   useEffect(() => {
     if (cmdOpen) cmdRef.current?.focus();
@@ -280,7 +288,7 @@ export default function KubeClient() {
 
       <TopBar
         activeCluster={activeCluster}
-        clusterState={{ ...cs, tabs: tabsWithErrors }}
+        clusterState={{ ...cs, tabs: visibleTabs }}
         onTabClick={setActiveTab}
         onCloseTab={closeTab}
         onOpenPalette={() => setCmdOpen(true)}
@@ -289,57 +297,52 @@ export default function KubeClient() {
 
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <Sidebar
-          clusters={clusters}
-          activeClusterId={activeClusterId}
           clusterState={cs}
-          clusterData={clusterData}
-          clusterLoading={clusterLoading}
           data={data}
           loading={loading}
-          onClustersClick={() => setActiveTab("clusters")}
-          onSwitchCluster={switchCluster}
-          onOpenResource={openResourceTab}
+          onClustersClick={goToClusters}
+          onOpenResource={openResourceView}
         />
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <div style={{ flex: 1, overflow: "hidden" }}>
-            {activeTabData?.id === "clusters" && (
+            {activeDetailTab ? (
+              <DetailView
+                key={`${activeDetailTab.id}-${activeClusterId}`}
+                obj={activeDetailTab.obj}
+                type={activeDetailTab.resourceType}
+                allData={data}
+                clusterId={activeClusterId}
+                onNavigate={(rt, obj) => openDetail(rt, obj)}
+              />
+            ) : cs.activeResource ? (
+              (() => {
+                const rt = cs.activeResource;
+                const tf = getTF(rt);
+                const ns = ["All", ...new Set((data[rt] || []).map((r) => r.namespace).filter(Boolean))];
+                return (
+                  <ResourceListTab
+                    key={rt}
+                    type={rt}
+                    data={data[rt] || []}
+                    loading={loading[rt]}
+                    onSelect={(row) => openDetail(rt, row)}
+                    filter={tf.filter}
+                    setFilter={(v) => setTF(rt, { filter: v })}
+                    namespace={tf.namespace}
+                    setNamespace={(v) => setTF(rt, { namespace: v })}
+                    namespaces={ns}
+                    onRefresh={() => fetchResource(rt)}
+                  />
+                );
+              })()
+            ) : (
               <ClustersTab
                 clusters={clusters}
                 activeClusterId={activeClusterId}
                 allClusterData={clusterData}
                 onSwitch={switchCluster}
-                onOpenResource={openResourceTab}
-              />
-            )}
-            {activeTabData?.type === "resource" && (() => {
-              const rt = activeTabData.resourceType;
-              const tf = getTF(rt);
-              const ns = ["All", ...new Set((data[rt] || []).map((r) => r.namespace).filter(Boolean))];
-              return (
-                <ResourceListTab
-                  key={activeTabData.id}
-                  type={rt}
-                  data={data[rt] || []}
-                  loading={loading[rt]}
-                  onSelect={(row) => openDetail(rt, row)}
-                  filter={tf.filter}
-                  setFilter={(v) => setTF(rt, { filter: v })}
-                  namespace={tf.namespace}
-                  setNamespace={(v) => setTF(rt, { namespace: v })}
-                  namespaces={ns}
-                  onRefresh={() => fetchResource(rt)}
-                />
-              );
-            })()}
-            {activeTabData?.type === "detail" && (
-              <DetailView
-                key={`${activeTabData.id}-${activeClusterId}`}
-                obj={activeTabData.obj}
-                type={activeTabData.resourceType}
-                allData={data}
-                clusterId={activeClusterId}
-                onNavigate={(rt, obj) => openDetail(rt, obj)}
+                onOpenResource={openResourceView}
               />
             )}
           </div>
