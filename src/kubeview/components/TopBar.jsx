@@ -1,7 +1,16 @@
-import { mono, ENV_STYLE } from "../theme";
+import { mono } from "../theme";
+import { ClusterDropdown } from "./ClusterDropdown";
 
-export function TopBar({ activeCluster, clusterState, onTabClick, onCloseTab, onOpenPalette, clock }) {
-  const envStyle = ENV_STYLE[activeCluster?.env] || ENV_STYLE.dev;
+export function TopBar({
+  clusters,
+  activeCluster,
+  onSwitchCluster,
+  clusterState,
+  onTabClick,
+  onCloseTab,
+  onOpenPalette,
+  clock,
+}) {
   const detailTabs = clusterState.tabs.filter((t) => t.type === "detail");
 
   return (
@@ -39,45 +48,11 @@ export function TopBar({ activeCluster, clusterState, onTabClick, onCloseTab, on
           ⬡ k11s
         </span>
       </div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 7,
-          padding: "0 12px",
-          borderRight: "1px solid #080e18",
-          height: "100%",
-          flexShrink: 0,
-        }}
-      >
-        <span
-          style={{
-            width: 7,
-            height: 7,
-            borderRadius: "50%",
-            background: activeCluster?.color,
-            boxShadow: `0 0 6px ${activeCluster?.color}88`,
-            animation: "pulse 2.5s infinite",
-            flexShrink: 0,
-          }}
-        />
-        <span style={{ color: "#dde", ...mono, fontSize: "0.74rem", fontWeight: 700 }}>
-          {activeCluster?.label}
-        </span>
-        <span
-          style={{
-            fontSize: "0.62rem",
-            background: envStyle.bg,
-            border: `1px solid ${envStyle.border}`,
-            borderRadius: 3,
-            color: envStyle.text,
-            padding: "0 5px",
-            ...mono,
-          }}
-        >
-          {activeCluster?.env}
-        </span>
-      </div>
+      <ClusterDropdown
+        clusters={clusters}
+        activeCluster={activeCluster}
+        onSwitch={onSwitchCluster}
+      />
       <div style={{ display: "flex", flex: 1, overflow: "hidden", height: "100%", minWidth: 0 }}>
         {detailTabs.map((tab) => {
           const isAct = clusterState.activeTab === tab.id;

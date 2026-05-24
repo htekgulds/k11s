@@ -287,7 +287,9 @@ export default function KubeClient() {
       />
 
       <TopBar
+        clusters={clusters}
         activeCluster={activeCluster}
+        onSwitchCluster={switchCluster}
         clusterState={{ ...cs, tabs: visibleTabs }}
         onTabClick={setActiveTab}
         onCloseTab={closeTab}
