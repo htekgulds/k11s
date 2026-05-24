@@ -5,6 +5,7 @@ import { nsColor } from "../utils/colors";
 import { Pill } from "./ui/Pill";
 import { Spinner } from "./ui/Spinner";
 import { StatusDot } from "./ui/StatusDot";
+import { Dropdown } from "./ui/Dropdown";
 
 export function ResourceListTab({
   type,
@@ -54,27 +55,7 @@ export function ResourceListTab({
         }}
       >
         <span style={{ color: "#0e1f2e", ...mono, fontSize: "0.67rem" }}>ns:</span>
-        <select
-          value={namespace}
-          onChange={(e) => setNamespace(e.target.value)}
-          style={{
-            background: "#080e18",
-            border: "1px solid #0e1f2e",
-            borderRadius: 3,
-            color: "#7dd3fc",
-            padding: "2px 6px",
-            ...mono,
-            fontSize: "0.68rem",
-            outline: "none",
-            cursor: "pointer",
-          }}
-        >
-          {namespaces.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
+        <Dropdown value={namespace} options={namespaces} onChange={setNamespace} style={{ minWidth: 110 }} />
         <span style={{ color: "#0a1420", fontSize: "0.68em", marginLeft: 3 }}>/</span>
         <input
           ref={filterRef}
