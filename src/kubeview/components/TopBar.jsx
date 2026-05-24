@@ -64,6 +64,7 @@ export function TopBar({
               key={tab.id}
               type="button"
               onClick={() => onTabClick(tab.id)}
+              onMouseDown={(e) => { if (e.button === 1) onCloseTab(tab.id, e); }}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -112,13 +113,15 @@ export function TopBar({
               <span
                 role="presentation"
                 onClick={(e) => onCloseTab(tab.id, e)}
-                style={{ color: "#0e1f2e", fontSize: "0.61rem", marginLeft: 1, flexShrink: 0, lineHeight: 1 }}
+                style={{ color: "#0e1f2e", fontSize: "0.85rem", marginLeft: 4, flexShrink: 0, lineHeight: 1, borderRadius: 3, padding: "0 3px", transition: "all 0.08s" }}
                 onMouseEnter={(e) => {
                   e.stopPropagation();
                   e.currentTarget.style.color = "#ff4d4d";
+                  e.currentTarget.style.background = "rgba(255,77,77,0.12)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.color = "#0e1f2e";
+                  e.currentTarget.style.background = "transparent";
                 }}
               >
                 ✕
