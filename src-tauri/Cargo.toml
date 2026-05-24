@@ -25,4 +25,5 @@ serde_json = "1"
 kube = { version = "0.98", default-features = false, features = ["client", "config", "rustls-tls"] }
 k8s-openapi = { version = "0.24", features = ["v1_31"] }
 chrono = "0.4"
+serde_yaml = "0.9"
 
