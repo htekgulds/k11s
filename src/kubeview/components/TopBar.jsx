@@ -71,7 +71,7 @@ export function TopBar({
                 background: isAct ? "#060a10" : "none",
                 border: "none",
                 borderBottom: isAct ? `2px solid ${tabColor}` : "2px solid transparent",
-                borderLeft: `2px solid ${isAct ? tabColor : "transparent"}`,
+                borderLeft: 'none',
                 borderRight: "1px solid #080e18",
                 color: isAct ? "#ccd" : tabErr ? "#ff5555" : "#2d4a6a",
                 padding: "0 12px",
