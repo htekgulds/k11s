@@ -90,10 +90,7 @@ export function Sidebar({ clusterState, activeCluster, data, loading, onClusters
               if (!isAct) e.currentTarget.style.background = "none";
             }}
           >
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: "0.79rem", opacity: 0.7 }}>{rt.icon}</span>
-              {rt.label}
-            </span>
+            {rt.label}
             <span
               style={{
                 fontSize: "0.62rem",

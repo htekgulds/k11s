@@ -96,7 +96,7 @@ export function TopBar({
                   opacity: isAct ? 1 : 0.65,
                 }}
               />
-              <span style={{ fontSize: "0.68rem", opacity: 0.65 }}>{tab.icon}</span>
+
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{tab.label}</span>
               {tabErr && (
                 <span

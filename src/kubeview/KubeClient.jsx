@@ -148,7 +148,7 @@ export default function KubeClient() {
             name: obj.name,
             namespace: ns,
             label: lbl,
-            icon: RESOURCE_TYPES.find((r) => r.key === resourceType)?.icon,
+
           },
         ];
       });
