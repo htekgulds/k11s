@@ -219,22 +219,6 @@ export function DetailView({ obj, type, allData, clusterId, onNavigate }) {
         }}
       >
         <div style={{ display: "flex", alignItems: "flex-start", gap: 11, marginBottom: 11 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 6,
-              background: `${statCol}10`,
-              border: `1px solid ${statCol}35`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "1.1rem",
-              flexShrink: 0,
-            }}
-          >
-            {RESOURCE_TYPES.find((r) => r.key === type)?.icon || "◎"}
-          </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginBottom: 4 }}>
               <span style={{ ...mono, fontWeight: 700, fontSize: "0.92rem", color: "#dde", wordBreak: "break-all" }}>
