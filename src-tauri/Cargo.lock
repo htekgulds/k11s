@@ -1989,7 +1989,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "k10s"
+name = "k11s"
 version = "0.1.0"
 dependencies = [
  "chrono",

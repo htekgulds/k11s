@@ -1,242 +1,123 @@
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-  font-weight: 400;
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+@layer base {
+  :root {
+    --bg: #f4f4f5;
+    --surface: #ffffff;
+    --surface-hover: #f0f0f1;
+    --border: #e4e4e7;
+    --text: #18181b;
+    --text-muted: #71717a;
 
-.app-layout {
-  display: flex;
-  height: 100vh;
-  overflow: hidden;
-}
+    --badge-ready-bg: #e4e4e7;
+    --badge-ready-text: #18181b;
+    --badge-pending-bg: #d4d4d8;
+    --badge-pending-text: #3f3f46;
+    --badge-error-bg: #c0c0c5;
+    --badge-error-text: #52525b;
+    --badge-svc-bg: #e4e4e7;
+    --badge-svc-text: #27272a;
 
-.sidebar {
-  width: 200px;
-  min-width: 200px;
-  background: #1a1a2e;
-  color: #e0e0e0;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-}
+    --error-bg: #e4e4e7;
+    --error-text: #52525b;
+  }
 
-.sidebar-title {
-  font-size: 1.4em;
-  font-weight: 700;
-  padding: 20px 20px 12px;
-  color: #fff;
-  letter-spacing: 1px;
-}
+  .dark {
+    --bg: #09090b;
+    --surface: #18181b;
+    --surface-hover: #1f1f23;
+    --border: #27272a;
+    --text: #e4e4e7;
+    --text-muted: #71717a;
 
-.sidebar nav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 10px;
-}
+    --badge-ready-bg: #27272a;
+    --badge-ready-text: #a1a1aa;
+    --badge-pending-bg: #1f1f23;
+    --badge-pending-text: #71717a;
+    --badge-error-bg: #18181b;
+    --badge-error-text: #52525b;
+    --badge-svc-bg: #1f1f23;
+    --badge-svc-text: #a1a1aa;
 
-.sidebar nav button {
-  background: transparent;
-  border: none;
-  color: #b0b0c0;
-  padding: 10px 14px;
-  text-align: left;
-  font-size: 0.95em;
-  font-weight: 500;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s;
-  box-shadow: none;
-}
+    --error-bg: #18181b;
+    --error-text: #71717a;
+  }
 
-.sidebar nav button:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-
-.sidebar nav .menu-active {
-  background: #396cd8;
-  color: #fff;
-}
-
-.content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 28px 32px;
-}
-
-.page h2 {
-  margin-bottom: 16px;
-  font-size: 1.3em;
-}
-
-.action-btn {
-  margin-bottom: 16px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.5em 1.2em;
-  font-size: 0.9em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #fff;
-  background-color: #396cd8;
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-  transition: background-color 0.2s;
-}
-
-.action-btn:hover {
-  background-color: #2b5ac7;
-}
-
-.action-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85em;
-  background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.data-table th,
-.data-table td {
-  padding: 10px 14px;
-  text-align: left;
-  border-bottom: 1px solid #eee;
-}
-
-.data-table th {
-  font-weight: 600;
-  background: #f8f9fa;
-  color: #555;
-  font-size: 0.8em;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.data-table tbody tr:hover {
-  background: #f0f4ff;
+  body {
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", "Monaco", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
 .badge {
   display: inline-block;
-  padding: 2px 10px;
-  border-radius: 10px;
-  font-size: 0.85em;
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
   font-weight: 600;
+  letter-spacing: 0.025em;
 }
 
 .badge-ready,
 .badge-running {
-  background: #d4edda;
-  color: #155724;
+  background: var(--badge-ready-bg);
+  color: var(--badge-ready-text);
 }
 
 .badge-notready,
 .badge-pending {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--badge-pending-bg);
+  color: var(--badge-pending-text);
 }
 
 .badge-unknown,
 .badge-failed {
-  background: #f8d7da;
-  color: #721c24;
+  background: var(--badge-error-bg);
+  color: var(--badge-error-text);
 }
 
 .badge-svc {
-  background: #e8eaf6;
-  color: #283593;
+  background: var(--badge-svc-bg);
+  color: var(--badge-svc-text);
 }
 
-.loading,
-.empty {
-  color: #888;
-  font-size: 0.9em;
-  padding: 10px 0;
+.data-table {
+  background: var(--surface);
 }
 
-.error {
-  color: #721c24;
-  background: #f8d7da;
-  padding: 10px 14px;
-  border-radius: 6px;
-  margin-bottom: 16px;
-  font-size: 0.9em;
+.data-table thead tr {
+  border-bottom: 1px solid var(--border);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #e0e0e0;
-    background-color: #1e1e2e;
-  }
+.data-table th {
+  padding: 0.75rem 1.25rem;
+  text-align: left;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+}
 
-  .sidebar {
-    background: #16162a;
-  }
+.data-table td {
+  padding: 0.75rem 1.25rem;
+}
 
-  .data-table {
-    background: #2a2a3e;
-  }
+.data-table tbody tr {
+  border-bottom: 1px solid var(--border);
+}
 
-  .data-table th {
-    background: #222236;
-    color: #999;
-    border-bottom-color: #3a3a4e;
-  }
+.data-table tbody tr:last-child {
+  border-bottom: none;
+}
 
-  .data-table td {
-    border-bottom-color: #3a3a4e;
-  }
-
-  .data-table tbody tr:hover {
-    background: #2e2e48;
-  }
-
-  .badge-ready,
-  .badge-running {
-    background: #1e4620;
-    color: #a3d9a5;
-  }
-
-  .badge-notready,
-  .badge-pending {
-    background: #4a3c0c;
-    color: #f0d87e;
-  }
-
-  .badge-unknown,
-  .badge-failed {
-    background: #4a1c1c;
-    color: #f5a3a3;
-  }
-
-  .badge-svc {
-    background: #2a2a5e;
-    color: #b0b0f0;
-  }
-
-  .error {
-    background: #4a1c1c;
-    color: #f5a3a3;
-  }
+.data-table tbody tr:hover {
+  background: var(--surface-hover);
 }
