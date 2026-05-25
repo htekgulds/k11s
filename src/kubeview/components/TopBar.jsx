@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { mono } from "../theme";
 import { ClusterDropdown } from "./ClusterDropdown";
 
@@ -12,6 +13,13 @@ export function TopBar({
   clock,
 }) {
   const detailTabs = clusterState.tabs.filter((t) => t.type === "detail");
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+    }
+  }, [clusterState.tabs.length]);
 
   return (
     <div
@@ -53,7 +61,13 @@ export function TopBar({
         activeCluster={activeCluster}
         onSwitch={onSwitchCluster}
       />
-      <div style={{ display: "flex", flex: 1, overflow: "hidden", height: "100%", minWidth: 0 }}>
+      <div
+        ref={scrollRef}
+        onWheel={(e) => {
+          scrollRef.current.scrollLeft += e.deltaY;
+        }}
+        style={{ display: "flex", flex: 1, overflowX: "auto", overflowY: "hidden", height: "100%", minWidth: 0 }}
+      >
         {detailTabs.map((tab) => {
           const isAct = clusterState.activeTab === tab.id;
           const tabErr = tab.tabErr;
