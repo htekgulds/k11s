@@ -721,15 +721,15 @@ pub async fn get_pod_logs(
 }
 
 fn to_yaml_stripped<T: serde::Serialize>(obj: &T, omit: bool) -> Result<String, String> {
-    if omit {
-        let mut json = serde_json::to_value(obj).map_err(|e| e.to_string())?;
-        if let Some(meta) = json.get_mut("metadata").and_then(|m| m.as_object_mut()) {
-            meta.remove("managedFields");
-        }
-        serde_yaml::to_string(&json).map_err(|e| e.to_string())
-    } else {
-        serde_yaml::to_string(obj).map_err(|e| e.to_string())
+    println!("omit: {}", omit);
+    if !omit {
+        return serde_yaml::to_string(obj).map_err(|e| e.to_string());
     }
+    let mut val = serde_json::to_value(obj).map_err(|e| e.to_string())?;
+    if let Some(meta) = val.get_mut("metadata").and_then(|m| m.as_object_mut()) {
+        meta.remove("managedFields");
+    }
+    serde_yaml::to_string(&val).map_err(|e| e.to_string())
 }
 
 pub async fn get_yaml(
