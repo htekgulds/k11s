@@ -1,6 +1,29 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { mono } from "../theme";
 
 export function CommandPalette({ open, query, setQuery, items, onClose, inputRef }) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const visible = items.slice(0, 10);
+  const listRef = useRef(null);
+
+  useEffect(() => {
+    const el = listRef.current?.children[selectedIndex];
+    el?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex]);
+
+  useHotkeys("down", () => setSelectedIndex((i) => Math.min(i + 1, visible.length - 1)), { enableOnFormTags: true, enabled: open, preventDefault: true }, [visible.length, open]);
+  useHotkeys("up", () => setSelectedIndex((i) => Math.max(i - 1, 0)), { enableOnFormTags: true, enabled: open, preventDefault: true }, [open]);
+  useHotkeys("enter", () => {
+    const item = visible[selectedIndex];
+    if (item) { item.fn(); onClose(); }
+  }, { enableOnFormTags: true, enabled: open }, [visible, selectedIndex, onClose, open]);
+
+  const runItem = useCallback((item) => {
+    item.fn();
+    onClose();
+  }, [onClose]);
+
   if (!open) return null;
 
   return (
@@ -42,7 +65,10 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSelectedIndex(0);
+            }}
             placeholder="Open resource, switch cluster…"
             style={{
               flex: 1,
@@ -56,19 +82,16 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
           />
           <span style={{ color: "#0e1f2e", fontSize: "0.67rem" }}>ESC</span>
         </div>
-        <div style={{ maxHeight: 260, overflowY: "auto" }}>
-          {items.slice(0, 10).map((item, i) => (
+        <div ref={listRef} style={{ maxHeight: 260, overflowY: "auto" }}>
+          {visible.map((item, i) => (
             <button
               key={i}
               type="button"
-              onClick={() => {
-                item.fn();
-                onClose();
-              }}
+              onClick={() => runItem(item)}
               style={{
                 display: "block",
                 width: "100%",
-                background: "none",
+                background: selectedIndex === i ? "#0a1420" : "none",
                 border: "none",
                 textAlign: "left",
                 padding: "9px 14px",
@@ -79,10 +102,11 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
                 borderBottom: "1px solid #080e18",
               }}
               onMouseEnter={(e) => {
+                setSelectedIndex(i);
                 e.currentTarget.style.background = "#0a1420";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = "none";
+                if (selectedIndex !== i) e.currentTarget.style.background = "none";
               }}
             >
               {item.label}
