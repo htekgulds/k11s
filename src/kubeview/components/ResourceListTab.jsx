@@ -59,7 +59,7 @@ export function ResourceListTab({
           flexShrink: 0,
         }}
       >
-        <span style={{ color: "#0e1f2e", ...mono, fontSize: "0.67rem" }}>ns:</span>
+        <span style={{ color: "#0e1f2e", ...mono, fontSize: "0.85rem" }}>ns:</span>
         <Dropdown value={namespace} options={namespaces} onChange={setNamespace} style={{ minWidth: 110 }} />
         <span style={{ color: "#0a1420", fontSize: "0.68em", marginLeft: 3 }}>/</span>
         <input

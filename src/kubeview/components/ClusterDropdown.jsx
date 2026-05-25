@@ -68,7 +68,7 @@ export function ClusterDropdown({ clusters, activeCluster, onSwitch }) {
         >
           {activeCluster.env}
         </span>
-        <span style={{ color: "#2d4a6a", fontSize: "0.55rem", marginLeft: 2 }}>{open ? "▴" : "▾"}</span>
+        <span style={{ color: "#2d4a6a", fontSize: "1rem", marginLeft: 2 }}>{open ? "▴" : "▾"}</span>
       </button>
       {open && (
         <div

@@ -37,7 +37,7 @@ export function Dropdown({ value, options, onChange, style }) {
         }}
       >
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{value}</span>
-        <span style={{ position: "absolute", right: 5, top: "50%", transform: "translateY(-50%)", fontSize: "0.55rem", color: "#1e3a52" }}>
+        <span style={{ position: "absolute", right: 5, top: "50%", transform: "translateY(-50%)", fontSize: "1rem", color: "#1e3a52" }}>
           ▾
         </span>
       </button>
