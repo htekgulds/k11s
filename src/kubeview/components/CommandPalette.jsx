@@ -8,6 +8,10 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
   const listRef = useRef(null);
 
   useEffect(() => {
+    if (open) setSelectedIndex(0);
+  }, [open]);
+
+  useEffect(() => {
     const el = listRef.current?.children[selectedIndex];
     el?.scrollIntoView({ block: "nearest" });
   }, [selectedIndex]);
