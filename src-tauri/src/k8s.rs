@@ -721,7 +721,6 @@ pub async fn get_pod_logs(
 }
 
 fn to_yaml_stripped<T: serde::Serialize>(obj: &T, omit: bool) -> Result<String, String> {
-    println!("omit: {}", omit);
     if !omit {
         return serde_yaml::to_string(obj).map_err(|e| e.to_string());
     }
