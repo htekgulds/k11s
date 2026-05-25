@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { ENV_STYLE, mono } from "../theme";
 
 export function ClusterDropdown({ clusters, activeCluster, onSwitch }) {
@@ -6,20 +7,15 @@ export function ClusterDropdown({ clusters, activeCluster, onSwitch }) {
   const ref = useRef(null);
   const envStyle = ENV_STYLE[activeCluster?.env] || ENV_STYLE.dev;
 
+  useHotkeys("escape", () => setOpen(false), { enabled: open }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onDoc = (e) => {
       if (!ref.current?.contains(e.target)) setOpen(false);
     };
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
     document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
   if (!activeCluster) return null;

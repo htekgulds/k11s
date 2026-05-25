@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { clusterHealth, k8sInvoke, listClusters } from "./api";
 import { defaultNavState, RESOURCE_TYPES } from "./constants";
 
@@ -225,25 +226,17 @@ export default function KubeClient() {
     },
   ].filter((i) => !cmdQuery || i.label.toLowerCase().includes(cmdQuery.toLowerCase()));
 
-  useEffect(() => {
-    const h = (e) => {
-      if (e.key === "Escape") {
-        setCmdOpen(false);
-        return;
-      }
-      if (e.key === ":" || ((e.metaKey || e.ctrlKey) && e.key === "k")) {
-        e.preventDefault();
-        setCmdOpen(true);
-        return;
-      }
-      if (document.activeElement === document.body) {
-        const rt = RESOURCE_TYPES.find((r) => r.shortcut === e.key.toUpperCase());
-        if (rt) openResourceView(rt.key);
-      }
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [openResourceView]);
+  useHotkeys("escape", () => setCmdOpen(false), { enableOnFormTags: true });
+  useHotkeys("mod+k, :", () => setCmdOpen(true), { preventDefault: true, useKey: true });
+  useHotkeys(
+    RESOURCE_TYPES.map((r) => r.shortcut.toLowerCase()).join(", "),
+    (e) => {
+      const rt = RESOURCE_TYPES.find((r) => r.shortcut === e.key.toUpperCase());
+      if (rt) openResourceView(rt.key);
+    },
+    { preventDefault: true },
+    [openResourceView],
+  );
 
   useEffect(() => {
     if (cmdOpen) cmdRef.current?.focus();

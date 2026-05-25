@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { COLUMNS } from "../constants";
 import { mono } from "../theme";
 import { nsColor } from "../utils/colors";
@@ -24,20 +25,8 @@ export function ResourceListTab({
   const [sortDir, setSortDir] = useState(1);
   const [hovered, setHovered] = useState(null);
   const filterRef = useRef(null);
-
-  useEffect(() => {
-    const h = (e) => {
-      if (e.key === "/" && document.activeElement !== filterRef.current) {
-        const tag = document.activeElement?.tagName;
-        if (tag !== "INPUT" && tag !== "TEXTAREA") {
-          e.preventDefault();
-          filterRef.current?.focus();
-        }
-      }
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, []);
+  useHotkeys("/", () => filterRef.current?.focus(), { preventDefault: true, useKey: true }, []);
+  useHotkeys("escape", () => { if (filter) setFilter(""); }, { enableOnFormTags: true }, [filter, setFilter]);
 
   const cols = COLUMNS[type] || Object.keys(data[0] || {});
   const rows = data.filter((r) => {
