@@ -12,6 +12,7 @@ export function ResourceListTab({
   data,
   loading,
   onSelect,
+  onMiddleClick,
   filter,
   setFilter,
   namespace,
@@ -153,10 +154,11 @@ export function ResourceListTab({
             </thead>
             <tbody>
               {sorted.map((row, i) => (
-                <tr
-                  key={`${row.name}-${i}`}
-                  onClick={() => onSelect(row)}
-                  style={{
+                  <tr
+                    key={`${row.name}-${i}`}
+                    onClick={() => onSelect(row)}
+                    onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); onMiddleClick?.(row); } }}
+                    style={{
                     borderBottom: "1px solid #060c14",
                     cursor: "pointer",
                     background: hovered === i ? "#0a1420" : "transparent",

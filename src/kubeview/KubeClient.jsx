@@ -99,7 +99,7 @@ export default function KubeClient() {
       ),
     );
     clusterIds.forEach((cid) => RESOURCE_TYPES.forEach((rt) => fetchResource(rt.key, cid)));
-  }, [activeClusterId, nav.tabs, fetchResource]);
+  }, [activeClusterId, fetchResource]);
 
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 1000);
@@ -121,10 +121,10 @@ export default function KubeClient() {
     [activeClusterId, fetchResource],
   );
 
-  const openDetail = useCallback(
+  const addTab = useCallback(
     (resourceType, obj, clusterId) => {
       const cid = clusterId || activeClusterId;
-      if (!cid) return;
+      if (!cid) return null;
       const ns = obj.namespace || "";
       const id = detailTabId(cid, resourceType, ns, obj.name);
       const lbl = obj.name.length > 16 ? `${obj.name.slice(0, 14)}…` : obj.name;
@@ -134,22 +134,27 @@ export default function KubeClient() {
         if (prev.find((t) => t.id === id)) return prev;
         return [
           ...prev,
-          {
-            id,
-            type: "detail",
-            clusterId: cid,
-            color,
-            resourceType,
-            name: obj.name,
-            namespace: ns,
-            label: lbl,
-
-          },
+          { id, type: "detail", clusterId: cid, color, resourceType, name: obj.name, namespace: ns, label: lbl },
         ];
       });
-      setActiveTab(id);
+      return id;
     },
-    [activeClusterId, clusters, setTabs, setActiveTab],
+    [activeClusterId, clusters, setTabs],
+  );
+
+  const openDetail = useCallback(
+    (resourceType, obj, clusterId) => {
+      const id = addTab(resourceType, obj, clusterId);
+      if (id) setActiveTab(id);
+    },
+    [addTab, setActiveTab],
+  );
+
+  const openDetailBackground = useCallback(
+    (resourceType, obj, clusterId) => {
+      addTab(resourceType, obj, clusterId);
+    },
+    [addTab],
   );
 
   const handleTabClick = useCallback(
@@ -298,6 +303,7 @@ export default function KubeClient() {
           data={missingData[rt] || []}
           loading={missingLoading[rt]}
           onSelect={(row) => openDetail(rt, row, activeDetailTab.clusterId)}
+          onMiddleClick={(row) => openDetailBackground(rt, row, activeDetailTab.clusterId)}
           filter={tf.filter}
           setFilter={(v) =>
             setTabFilters((prev) => ({
@@ -329,6 +335,7 @@ export default function KubeClient() {
           data={data[rt] || []}
           loading={loading[rt]}
           onSelect={(row) => openDetail(rt, row, activeClusterId)}
+          onMiddleClick={(row) => openDetailBackground(rt, row, activeClusterId)}
           filter={tf.filter}
           setFilter={(v) => setTF(rt, { filter: v })}
           namespace={tf.namespace}
