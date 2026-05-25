@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { k8sInvoke, listClusters } from "./api";
+import { clusterHealth, k8sInvoke, listClusters } from "./api";
 import { defaultNavState, RESOURCE_TYPES } from "./constants";
 
 import { CommandPalette } from "./components/CommandPalette";
@@ -32,6 +32,7 @@ export default function KubeClient() {
   const [clusterData, setClusterData] = useState({});
   const [clusterLoading, setClusterLoading] = useState({});
   const [tabFilters, setTabFilters] = useState({});
+  const [connected, setConnected] = useState(true);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
   const [clock, setClock] = useState(() => new Date());
@@ -106,6 +107,16 @@ export default function KubeClient() {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    if (!activeClusterId) return;
+    const check = () => {
+      clusterHealth(activeClusterId).then(setConnected).catch(() => setConnected(false));
+    };
+    check();
+    const t = setInterval(check, 10000);
+    return () => clearInterval(t);
+  }, [activeClusterId]);
+
   const switchCluster = useCallback((cid) => {
     setActiveClusterId(cid);
   }, []);
@@ -177,10 +188,10 @@ export default function KubeClient() {
     [setTabs, setActiveTab],
   );
 
-  const tfKey = (resType) => `${activeClusterId}·${resType}`;
-  const getTF = (resType) => tabFilters[tfKey(resType)] || { filter: "", namespace: "All" };
-  const setTF = (resType, patch) =>
-    setTabFilters((prev) => ({ ...prev, [tfKey(resType)]: { ...getTF(resType), ...patch } }));
+  const clusterKey = (cid) => cid || activeClusterId;
+  const getTF = (cid) => tabFilters[clusterKey(cid)] || { filter: "", namespace: "All" };
+  const setTF = (cid, patch) =>
+    setTabFilters((prev) => ({ ...prev, [clusterKey(cid)]: { ...getTF(cid), ...patch } }));
 
   const visibleTabs = detailTabsOnly(nav.tabs).map((tab) => {
     const tabData = clusterData[tab.clusterId] || {};
@@ -292,9 +303,10 @@ export default function KubeClient() {
 
     if (activeDetailTab && !detailObj) {
       const rt = activeDetailTab.resourceType;
-      const missingData = clusterData[activeDetailTab.clusterId] || {};
-      const missingLoading = clusterLoading[activeDetailTab.clusterId] || {};
-      const tf = tabFilters[`${activeDetailTab.clusterId}·${rt}`] || { filter: "", namespace: "All" };
+      const cid = activeDetailTab.clusterId;
+      const missingData = clusterData[cid] || {};
+      const missingLoading = clusterLoading[cid] || {};
+      const tf = tabFilters[cid] || { filter: "", namespace: "All" };
       const ns = ["All", ...new Set((missingData[rt] || []).map((r) => r.namespace).filter(Boolean))];
       return (
         <ResourceListTab
@@ -302,31 +314,31 @@ export default function KubeClient() {
           type={rt}
           data={missingData[rt] || []}
           loading={missingLoading[rt]}
-          onSelect={(row) => openDetail(rt, row, activeDetailTab.clusterId)}
-          onMiddleClick={(row) => openDetailBackground(rt, row, activeDetailTab.clusterId)}
+          onSelect={(row) => openDetail(rt, row, cid)}
+          onMiddleClick={(row) => openDetailBackground(rt, row, cid)}
           filter={tf.filter}
           setFilter={(v) =>
             setTabFilters((prev) => ({
               ...prev,
-              [`${activeDetailTab.clusterId}·${rt}`]: { ...tf, filter: v },
+              [cid]: { ...tf, filter: v },
             }))
           }
           namespace={tf.namespace}
           setNamespace={(v) =>
             setTabFilters((prev) => ({
               ...prev,
-              [`${activeDetailTab.clusterId}·${rt}`]: { ...tf, namespace: v },
+              [cid]: { ...tf, namespace: v },
             }))
           }
           namespaces={ns}
-          onRefresh={() => fetchResource(rt, activeDetailTab.clusterId)}
+          onRefresh={() => fetchResource(rt, cid)}
         />
       );
     }
 
     if (nav.activeResource) {
       const rt = nav.activeResource;
-      const tf = getTF(rt);
+      const tf = getTF(activeClusterId);
       const ns = ["All", ...new Set((data[rt] || []).map((r) => r.namespace).filter(Boolean))];
       return (
         <ResourceListTab
@@ -337,9 +349,9 @@ export default function KubeClient() {
           onSelect={(row) => openDetail(rt, row, activeClusterId)}
           onMiddleClick={(row) => openDetailBackground(rt, row, activeClusterId)}
           filter={tf.filter}
-          setFilter={(v) => setTF(rt, { filter: v })}
+          setFilter={(v) => setTF(activeClusterId, { filter: v })}
           namespace={tf.namespace}
-          setNamespace={(v) => setTF(rt, { namespace: v })}
+          setNamespace={(v) => setTF(activeClusterId, { namespace: v })}
           namespaces={ns}
           onRefresh={() => fetchResource(rt)}
         />
@@ -398,7 +410,7 @@ export default function KubeClient() {
         </div>
       </div>
 
-      <StatusBar activeCluster={activeCluster} connected={!clustersError} version="v0.1.0" />
+      <StatusBar activeCluster={activeCluster} connected={connected} version="v0.1.0" />
     </div>
   );
 }

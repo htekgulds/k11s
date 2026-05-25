@@ -7,6 +7,11 @@ fn list_clusters() -> Result<Vec<clusters::ClusterInfo>, String> {
 }
 
 #[tauri::command]
+async fn cluster_health(context: Option<String>) -> Result<bool, String> {
+    k8s::cluster_health(context).await
+}
+
+#[tauri::command]
 async fn list_nodes(context: Option<String>) -> Result<Vec<k8s::NodeInfo>, String> {
     k8s::list_nodes(context).await
 }
@@ -88,6 +93,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             list_clusters,
+            cluster_health,
             list_nodes,
             list_pods,
             list_deployments,
