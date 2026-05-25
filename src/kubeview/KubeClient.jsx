@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { k8sInvoke, listClusters } from "./api";
 import { defaultNavState, RESOURCE_TYPES } from "./constants";
-import { ClustersTab } from "./components/ClustersTab";
+
 import { CommandPalette } from "./components/CommandPalette";
 import { DetailView } from "./components/DetailView";
 import { ResourceListTab } from "./components/ResourceListTab";
@@ -110,11 +110,6 @@ export default function KubeClient() {
     setActiveClusterId(cid);
   }, []);
 
-  const switchClusterFromPage = useCallback((cid) => {
-    setActiveClusterId(cid);
-    setNav((n) => ({ ...n, activeResource: "nodes", activeTab: null }));
-  }, []);
-
   const openResourceView = useCallback(
     (resType, cid) => {
       const clusterId = cid || activeClusterId;
@@ -177,10 +172,6 @@ export default function KubeClient() {
     [setTabs, setActiveTab],
   );
 
-  const goToClusters = useCallback(() => {
-    setNav((n) => ({ ...n, activeTab: null, activeResource: null }));
-  }, []);
-
   const tfKey = (resType) => `${activeClusterId}·${resType}`;
   const getTF = (resType) => tabFilters[tfKey(resType)] || { filter: "", namespace: "All" };
   const setTF = (resType, patch) =>
@@ -201,7 +192,6 @@ export default function KubeClient() {
   const activeCluster = clusters.find((c) => c.id === activeClusterId);
 
   const cmdItems = [
-    { label: "Go to Clusters overview", fn: () => goToClusters() },
     ...clusters
       .filter((c) => c.id !== activeClusterId)
       .map((c) => ({ label: `Switch to ${c.label}`, fn: () => switchCluster(c.id) })),
@@ -349,15 +339,7 @@ export default function KubeClient() {
       );
     }
 
-    return (
-      <ClustersTab
-        clusters={clusters}
-        activeClusterId={activeClusterId}
-        allClusterData={clusterData}
-        onSwitch={switchClusterFromPage}
-        onOpenResource={openResourceView}
-      />
-    );
+    return null;
   };
 
   return (
@@ -401,7 +383,6 @@ export default function KubeClient() {
           activeCluster={activeCluster}
           data={data}
           loading={loading}
-          onClustersClick={goToClusters}
           onOpenResource={openResourceView}
         />
 

@@ -1,9 +1,8 @@
 import { RESOURCE_TYPES } from "../constants";
 import { mono } from "../theme";
 
-export function Sidebar({ clusterState, activeCluster, data, loading, onClustersClick, onOpenResource }) {
+export function Sidebar({ clusterState, activeCluster, data, loading, onOpenResource }) {
   const clustersColor = activeCluster?.color || "#39ff8a";
-  const onClustersView = !clusterState.activeResource && !clusterState.activeTab;
   return (
     <div
       style={{
@@ -16,29 +15,6 @@ export function Sidebar({ clusterState, activeCluster, data, loading, onClusters
         overflowY: "auto",
       }}
     >
-      <button
-        type="button"
-        onClick={onClustersClick}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 7,
-          background: onClustersView ? "#080e18" : "none",
-          border: "none",
-          borderLeft: onClustersView ? `2px solid ${clustersColor}` : "2px solid transparent",
-          color: onClustersView ? "#bdd" : "#1e3a52",
-          padding: "8px 10px",
-          cursor: "pointer",
-          ...mono,
-          fontSize: "0.72rem",
-          width: "100%",
-          textAlign: "left",
-          borderBottom: "1px solid #080e18",
-          marginBottom: 3,
-        }}
-      >
-        <span style={{ fontSize: "0.8rem" }}>⬡</span> Clusters
-      </button>
       <div
         style={{
           padding: "4px 10px 2px",

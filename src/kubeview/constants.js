@@ -34,5 +34,5 @@ export const DETAIL_TABS_MAP = {
 export const defaultNavState = () => ({
   tabs: [],
   activeTab: null,
-  activeResource: null,
+  activeResource: "nodes",
 });
