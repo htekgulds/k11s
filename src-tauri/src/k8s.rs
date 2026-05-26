@@ -43,6 +43,9 @@ fn fmt_age(ts: &Option<k8s_openapi::apimachinery::pkg::apis::meta::v1::Time>) ->
 }
 
 fn pod_status(pod: &Pod) -> String {
+    if pod.metadata.deletion_timestamp.is_some() {
+        return "Terminating".to_string();
+    }
     if let Some(statuses) = pod
         .status
         .as_ref()
