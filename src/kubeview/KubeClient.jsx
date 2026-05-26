@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { clusterHealth, k8sInvoke, listClusters } from "./api";
+import { clusterHealth, k8sInvoke, listClusters, onResourceUpdate, startWatchers, stopWatchers } from "./api";
 import { defaultNavState, RESOURCE_TYPES } from "./constants";
 
 import { CommandPalette } from "./components/CommandPalette";
@@ -25,6 +25,32 @@ function resolveDetailObject(tab, data) {
   return items.find((r) => r.name === tab.name && r.namespace === tab.namespace) || null;
 }
 
+function applyUpdate(prev, context, resourceType, name, namespace, object) {
+  const cluster = { ...(prev[context] || {}) };
+  const items = [...(cluster[resourceType] || [])];
+  const idx = resourceType === "nodes"
+    ? items.findIndex((r) => r.name === name)
+    : items.findIndex((r) => r.name === name && r.namespace === namespace);
+  if (idx >= 0) {
+    items[idx] = object;
+  } else {
+    items.push(object);
+  }
+  cluster[resourceType] = items;
+  return { ...prev, [context]: cluster };
+}
+
+function removeUpdate(prev, context, resourceType, name, namespace) {
+  const cluster = { ...(prev[context] || {}) };
+  const items = (cluster[resourceType] || []).filter((r) =>
+    resourceType === "nodes"
+      ? r.name !== name
+      : !(r.name === name && r.namespace === namespace)
+  );
+  cluster[resourceType] = items;
+  return { ...prev, [context]: cluster };
+}
+
 export default function KubeClient() {
   const [clusters, setClusters] = useState([]);
   const [clustersError, setClustersError] = useState(null);
@@ -38,6 +64,10 @@ export default function KubeClient() {
   const [cmdQuery, setCmdQuery] = useState("");
   const [clock, setClock] = useState(() => new Date());
   const cmdRef = useRef(null);
+  const unlistenRef = useRef(null);
+  const activeIdRef = useRef(activeClusterId);
+
+  activeIdRef.current = activeClusterId;
 
   const data = clusterData[activeClusterId] || {};
   const loading = clusterLoading[activeClusterId] || {};
@@ -82,6 +112,75 @@ export default function KubeClient() {
     }
   }, [activeClusterId]);
 
+  // Event listener for real-time resource updates
+  useEffect(() => {
+    let unlisten = null;
+    onResourceUpdate((payload) => {
+      const { context, resource_type: resourceType, action, name, namespace, object } = payload;
+
+      if (action === "apply" && object) {
+        setClusterData((prev) => applyUpdate(prev, context, resourceType, name, namespace, object));
+      } else if (action === "delete") {
+        setClusterData((prev) => removeUpdate(prev, context, resourceType, name, namespace));
+      } else if (action === "init_done") {
+        setClusterLoading((prev) => ({
+          ...prev,
+          [context]: { ...(prev[context] || {}), [resourceType]: false },
+        }));
+      } else if (action === "error") {
+        console.error(`watcher error for ${context}/${resourceType}:`, object?.error);
+        setClusterLoading((prev) => ({
+          ...prev,
+          [context]: { ...(prev[context] || {}), [resourceType]: false },
+        }));
+      }
+    }).then((fn) => {
+      unlisten = fn;
+      unlistenRef.current = fn;
+    });
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+        unlistenRef.current = null;
+      } else {
+        // If listen() hasn't resolved yet, clean up via ref
+        const fn = unlistenRef.current;
+        if (fn) { fn(); unlistenRef.current = null; }
+      }
+    };
+  }, []);
+
+  // Start/stop watchers when active cluster changes
+  useEffect(() => {
+    if (!activeClusterId) return;
+
+    const prevId = activeIdRef.current;
+    if (prevId && prevId !== activeClusterId) {
+      stopWatchers(prevId).catch(() => {});
+    }
+
+    const loadingState = {};
+    RESOURCE_TYPES.forEach((rt) => { loadingState[rt.key] = true; });
+    setClusterLoading((prev) => ({ ...prev, [activeClusterId]: loadingState }));
+    setClusterData((prev) => {
+      if (prev[activeClusterId]) return prev;
+      return { ...prev, [activeClusterId]: {} };
+    });
+
+    startWatchers(activeClusterId).catch((err) => {
+      console.error("Failed to start watchers:", err);
+      setClusterLoading((prev) => ({
+        ...prev,
+        [activeClusterId]: Object.fromEntries(RESOURCE_TYPES.map((rt) => [rt.key, false])),
+      }));
+    });
+
+    return () => {
+      stopWatchers(activeClusterId).catch(() => {});
+    };
+  }, [activeClusterId]);
+
   useEffect(() => {
     listClusters()
       .then((list) => {
@@ -93,15 +192,6 @@ export default function KubeClient() {
       })
       .catch((err) => setClustersError(String(err)));
   }, []);
-
-  useEffect(() => {
-    const clusterIds = new Set(
-      [activeClusterId, ...nav.tabs.filter((t) => t.type === "detail").map((t) => t.clusterId)].filter(
-        Boolean,
-      ),
-    );
-    clusterIds.forEach((cid) => RESOURCE_TYPES.forEach((rt) => fetchResource(rt.key, cid)));
-  }, [activeClusterId, fetchResource]);
 
   useEffect(() => {
     const t = setInterval(() => setClock(new Date()), 1000);

@@ -8,7 +8,7 @@ use kube::{api::ListParams, Api, Client, Config};
 use serde::Serialize;
 use std::collections::HashMap;
 
-async fn make_client(context: Option<String>) -> Result<Client, String> {
+pub(crate) async fn make_client(context: Option<String>) -> Result<Client, String> {
     let opts = KubeConfigOptions {
         context: context.clone(),
         ..Default::default()
@@ -238,91 +238,103 @@ pub struct EventsResponse {
     pub events: Vec<EventInfo>,
 }
 
+pub fn node_to_info(node: Node, pod_count: usize) -> NodeInfo {
+    let name = node.metadata.name.clone().unwrap_or_default();
+
+    let status = node
+        .status
+        .as_ref()
+        .and_then(|s| s.conditions.as_ref())
+        .and_then(|conds| {
+            conds
+                .iter()
+                .find(|c| c.type_ == "Ready")
+                .map(|c| match c.status.as_str() {
+                    "True" => "Ready",
+                    "False" => "NotReady",
+                    _ => "Unknown",
+                })
+        })
+        .unwrap_or("Unknown")
+        .to_string();
+
+    let roles: Vec<String> = node
+        .metadata
+        .labels
+        .as_ref()
+        .map(|labels| {
+            labels
+                .keys()
+                .filter(|k| k.starts_with("node-role.kubernetes.io/"))
+                .map(|k| k.trim_start_matches("node-role.kubernetes.io/").to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let roles = if roles.is_empty() {
+        "<none>".to_string()
+    } else {
+        roles.join(",")
+    };
+
+    let node_info = node.status.as_ref().and_then(|s| s.node_info.as_ref());
+    let version = node_info
+        .map(|i| i.kubelet_version.clone())
+        .unwrap_or_default();
+    let allocatable = node.status.as_ref().and_then(|s| s.allocatable.as_ref());
+    let capacity = node.status.as_ref().and_then(|s| s.capacity.as_ref());
+
+    let cpu = allocatable
+        .and_then(|a| a.get("cpu").map(|q| q.0.clone()))
+        .unwrap_or_default();
+    let mem = allocatable
+        .and_then(|a| a.get("memory").map(|q| q.0.clone()))
+        .unwrap_or_default();
+    let max_pods = capacity
+        .and_then(|c| c.get("pods").map(|q| q.0.clone()))
+        .unwrap_or_else(|| "?".to_string());
+    let pods = format!("{pod_count}/{max_pods}");
+    let age = fmt_age(&node.metadata.creation_timestamp);
+
+    NodeInfo {
+        name,
+        status,
+        roles,
+        version,
+        cpu,
+        mem,
+        pods,
+        age,
+    }
+}
+
 pub async fn list_nodes(context: Option<String>) -> Result<Vec<NodeInfo>, String> {
     let client = make_client(context).await?;
     let pod_counts = pods_per_node(&client).await;
-
     let nodes = Api::<Node>::all(client)
         .list(&ListParams::default())
         .await
         .map_err(|e| format!("Failed to list nodes: {e}"))?;
 
-    let infos: Vec<NodeInfo> = nodes
-        .items
-        .into_iter()
-        .map(|node| {
-            let name = node.metadata.name.clone().unwrap_or_default();
+    Ok(nodes.items.into_iter().map(|n| {
+        let name = n.metadata.name.clone().unwrap_or_default();
+        let count = pod_counts.get(&name).copied().unwrap_or(0);
+        node_to_info(n, count)
+    }).collect())
+}
 
-            let status = node
-                .status
-                .as_ref()
-                .and_then(|s| s.conditions.as_ref())
-                .and_then(|conds| {
-                    conds
-                        .iter()
-                        .find(|c| c.type_ == "Ready")
-                        .map(|c| match c.status.as_str() {
-                            "True" => "Ready",
-                            "False" => "NotReady",
-                            _ => "Unknown",
-                        })
-                })
-                .unwrap_or("Unknown")
-                .to_string();
-
-            let roles: Vec<String> = node
-                .metadata
-                .labels
-                .as_ref()
-                .map(|labels| {
-                    labels
-                        .keys()
-                        .filter(|k| k.starts_with("node-role.kubernetes.io/"))
-                        .map(|k| k.trim_start_matches("node-role.kubernetes.io/").to_string())
-                        .collect()
-                })
-                .unwrap_or_default();
-
-            let roles = if roles.is_empty() {
-                "<none>".to_string()
-            } else {
-                roles.join(",")
-            };
-
-            let node_info = node.status.as_ref().and_then(|s| s.node_info.as_ref());
-            let version = node_info
-                .map(|i| i.kubelet_version.clone())
-                .unwrap_or_default();
-            let allocatable = node.status.as_ref().and_then(|s| s.allocatable.as_ref());
-            let capacity = node.status.as_ref().and_then(|s| s.capacity.as_ref());
-
-            let cpu = allocatable
-                .and_then(|a| a.get("cpu").map(|q| q.0.clone()))
-                .unwrap_or_default();
-            let mem = allocatable
-                .and_then(|a| a.get("memory").map(|q| q.0.clone()))
-                .unwrap_or_default();
-            let max_pods = capacity
-                .and_then(|c| c.get("pods").map(|q| q.0.clone()))
-                .unwrap_or_else(|| "?".to_string());
-            let used = pod_counts.get(&name).copied().unwrap_or(0);
-            let pods = format!("{used}/{max_pods}");
-            let age = fmt_age(&node.metadata.creation_timestamp);
-
-            NodeInfo {
-                name,
-                status,
-                roles,
-                version,
-                cpu,
-                mem,
-                pods,
-                age,
-            }
-        })
-        .collect();
-
-    Ok(infos)
+pub fn pod_to_info(pod: Pod) -> PodInfo {
+    PodInfo {
+        name: pod.metadata.name.clone().unwrap_or_default(),
+        namespace: pod.metadata.namespace.clone().unwrap_or_default(),
+        status: pod_status(&pod),
+        ready: container_ready(&pod),
+        restarts: container_restarts(&pod),
+        node: pod.spec.as_ref().and_then(|s| s.node_name.clone()).unwrap_or_default(),
+        ip: pod.status.as_ref().and_then(|s| s.pod_ip.clone()).unwrap_or_default(),
+        image: first_container_image(&pod),
+        age: fmt_age(&pod.metadata.creation_timestamp),
+    }
 }
 
 pub async fn list_pods(context: Option<String>) -> Result<Vec<PodInfo>, String> {
@@ -332,38 +344,48 @@ pub async fn list_pods(context: Option<String>) -> Result<Vec<PodInfo>, String> 
         .await
         .map_err(|e| format!("Failed to list pods: {e}"))?;
 
-    let infos: Vec<PodInfo> = pods
-        .items
-        .into_iter()
-        .map(|pod| {
-            let name = pod.metadata.name.clone().unwrap_or_default();
-            let namespace = pod.metadata.namespace.clone().unwrap_or_default();
-            let node = pod
-                .spec
-                .as_ref()
-                .and_then(|s| s.node_name.clone())
-                .unwrap_or_default();
-            let ip = pod
-                .status
-                .as_ref()
-                .and_then(|s| s.pod_ip.clone())
-                .unwrap_or_default();
+    Ok(pods.items.into_iter().map(pod_to_info).collect())
+}
 
-            PodInfo {
-                name,
-                namespace,
-                status: pod_status(&pod),
-                ready: container_ready(&pod),
-                restarts: container_restarts(&pod),
-                node,
-                ip,
-                image: first_container_image(&pod),
-                age: fmt_age(&pod.metadata.creation_timestamp),
-            }
+pub fn deployment_to_info(d: Deployment) -> DeploymentInfo {
+    let name = d.metadata.name.unwrap_or_default();
+    let namespace = d.metadata.namespace.unwrap_or_default();
+    let desired = d.spec.as_ref().and_then(|s| s.replicas).unwrap_or(0);
+    let (ready_replicas, up_to_date, available) = d
+        .status
+        .as_ref()
+        .map(|s| {
+            (
+                s.ready_replicas.unwrap_or(0),
+                s.updated_replicas.unwrap_or(0),
+                s.available_replicas.unwrap_or(0),
+            )
         })
-        .collect();
+        .unwrap_or((0, 0, 0));
+    let image = d
+        .spec
+        .as_ref()
+        .and_then(|s| s.template.spec.as_ref())
+        .and_then(|ps| ps.containers.first())
+        .and_then(|c| c.image.clone())
+        .unwrap_or_default();
+    let strategy = d
+        .spec
+        .as_ref()
+        .and_then(|s| s.strategy.as_ref())
+        .and_then(|st| st.type_.clone())
+        .unwrap_or_else(|| "RollingUpdate".to_string());
 
-    Ok(infos)
+    DeploymentInfo {
+        name,
+        namespace,
+        ready: format!("{ready_replicas}/{desired}"),
+        up_to_date,
+        available,
+        image,
+        strategy,
+        age: fmt_age(&d.metadata.creation_timestamp),
+    }
 }
 
 pub async fn list_deployments(context: Option<String>) -> Result<Vec<DeploymentInfo>, String> {
@@ -373,52 +395,34 @@ pub async fn list_deployments(context: Option<String>) -> Result<Vec<DeploymentI
         .await
         .map_err(|e| format!("Failed to list deployments: {e}"))?;
 
-    let infos: Vec<DeploymentInfo> = deps
-        .items
-        .into_iter()
-        .map(|d| {
-            let name = d.metadata.name.unwrap_or_default();
-            let namespace = d.metadata.namespace.unwrap_or_default();
-            let desired = d.spec.as_ref().and_then(|s| s.replicas).unwrap_or(0);
-            let (ready_replicas, up_to_date, available) = d
-                .status
-                .as_ref()
-                .map(|s| {
-                    (
-                        s.ready_replicas.unwrap_or(0),
-                        s.updated_replicas.unwrap_or(0),
-                        s.available_replicas.unwrap_or(0),
-                    )
-                })
-                .unwrap_or((0, 0, 0));
-            let image = d
-                .spec
-                .as_ref()
-                .and_then(|s| s.template.spec.as_ref())
-                .and_then(|ps| ps.containers.first())
-                .and_then(|c| c.image.clone())
-                .unwrap_or_default();
-            let strategy = d
-                .spec
-                .as_ref()
-                .and_then(|s| s.strategy.as_ref())
-                .and_then(|st| st.type_.clone())
-                .unwrap_or_else(|| "RollingUpdate".to_string());
+    Ok(deps.items.into_iter().map(deployment_to_info).collect())
+}
 
-            DeploymentInfo {
-                name,
-                namespace,
-                ready: format!("{ready_replicas}/{desired}"),
-                up_to_date,
-                available,
-                image,
-                strategy,
-                age: fmt_age(&d.metadata.creation_timestamp),
-            }
-        })
-        .collect();
+pub fn statefulset_to_info(s: StatefulSet) -> StatefulSetInfo {
+    let name = s.metadata.name.unwrap_or_default();
+    let namespace = s.metadata.namespace.unwrap_or_default();
+    let replicas = s.spec.as_ref().and_then(|sp| sp.replicas).unwrap_or(0);
+    let ready_replicas = s
+        .status
+        .as_ref()
+        .map(|st| st.ready_replicas.unwrap_or(0))
+        .unwrap_or(0);
+    let image = s
+        .spec
+        .as_ref()
+        .and_then(|sp| sp.template.spec.as_ref())
+        .and_then(|ps| ps.containers.first())
+        .and_then(|c| c.image.clone())
+        .unwrap_or_default();
 
-    Ok(infos)
+    StatefulSetInfo {
+        name,
+        namespace,
+        ready: format!("{ready_replicas}/{replicas}"),
+        image,
+        replicas,
+        age: fmt_age(&s.metadata.creation_timestamp),
+    }
 }
 
 pub async fn list_statefulsets(context: Option<String>) -> Result<Vec<StatefulSetInfo>, String> {
@@ -428,38 +432,57 @@ pub async fn list_statefulsets(context: Option<String>) -> Result<Vec<StatefulSe
         .await
         .map_err(|e| format!("Failed to list statefulsets: {e}"))?;
 
-    let infos: Vec<StatefulSetInfo> = sts
-        .items
-        .into_iter()
-        .map(|s| {
-            let name = s.metadata.name.unwrap_or_default();
-            let namespace = s.metadata.namespace.unwrap_or_default();
-            let replicas = s.spec.as_ref().and_then(|sp| sp.replicas).unwrap_or(0);
-            let ready_replicas = s
-                .status
-                .as_ref()
-                .map(|st| st.ready_replicas.unwrap_or(0))
-                .unwrap_or(0);
-            let image = s
-                .spec
-                .as_ref()
-                .and_then(|sp| sp.template.spec.as_ref())
-                .and_then(|ps| ps.containers.first())
-                .and_then(|c| c.image.clone())
-                .unwrap_or_default();
+    Ok(sts.items.into_iter().map(statefulset_to_info).collect())
+}
 
-            StatefulSetInfo {
-                name,
-                namespace,
-                ready: format!("{ready_replicas}/{replicas}"),
-                image,
-                replicas,
-                age: fmt_age(&s.metadata.creation_timestamp),
-            }
+pub fn service_to_info(s: Service) -> ServiceInfo {
+    let name = s.metadata.name.unwrap_or_default();
+    let namespace = s.metadata.namespace.unwrap_or_default();
+    let service_type = s
+        .spec
+        .as_ref()
+        .and_then(|sp| sp.type_.clone())
+        .unwrap_or_else(|| "ClusterIP".to_string());
+    let cluster_ip = s
+        .spec
+        .as_ref()
+        .and_then(|sp| sp.cluster_ip.clone())
+        .unwrap_or_default();
+    let external_ip = s
+        .status
+        .as_ref()
+        .and_then(|st| st.load_balancer.as_ref())
+        .and_then(|lb| lb.ingress.as_ref())
+        .and_then(|ing| ing.first())
+        .and_then(|i| i.ip.clone().or_else(|| i.hostname.clone()))
+        .unwrap_or_else(|| "<none>".to_string());
+    let ports = s
+        .spec
+        .as_ref()
+        .and_then(|sp| sp.ports.as_ref())
+        .map(|ports| {
+            ports
+                .iter()
+                .map(|p| {
+                    let port = p.port;
+                    let proto = p.protocol.as_deref().unwrap_or("TCP");
+                    let node_port = p.node_port.map(|np| format!(":{np}")).unwrap_or_default();
+                    format!("{port}{node_port}/{proto}")
+                })
+                .collect::<Vec<_>>()
+                .join(",")
         })
-        .collect();
+        .unwrap_or_default();
 
-    Ok(infos)
+    ServiceInfo {
+        name,
+        namespace,
+        service_type,
+        cluster_ip,
+        external_ip,
+        ports,
+        age: fmt_age(&s.metadata.creation_timestamp),
+    }
 }
 
 pub async fn list_services(context: Option<String>) -> Result<Vec<ServiceInfo>, String> {
@@ -469,61 +492,59 @@ pub async fn list_services(context: Option<String>) -> Result<Vec<ServiceInfo>, 
         .await
         .map_err(|e| format!("Failed to list services: {e}"))?;
 
-    let infos: Vec<ServiceInfo> = svcs
-        .items
-        .into_iter()
-        .map(|s| {
-            let name = s.metadata.name.unwrap_or_default();
-            let namespace = s.metadata.namespace.unwrap_or_default();
-            let service_type = s
-                .spec
-                .as_ref()
-                .and_then(|sp| sp.type_.clone())
-                .unwrap_or_else(|| "ClusterIP".to_string());
-            let cluster_ip = s
-                .spec
-                .as_ref()
-                .and_then(|sp| sp.cluster_ip.clone())
-                .unwrap_or_default();
-            let external_ip = s
-                .status
-                .as_ref()
-                .and_then(|st| st.load_balancer.as_ref())
-                .and_then(|lb| lb.ingress.as_ref())
-                .and_then(|ing| ing.first())
-                .and_then(|i| i.ip.clone().or_else(|| i.hostname.clone()))
-                .unwrap_or_else(|| "<none>".to_string());
-            let ports = s
-                .spec
-                .as_ref()
-                .and_then(|sp| sp.ports.as_ref())
-                .map(|ports| {
-                    ports
-                        .iter()
-                        .map(|p| {
-                            let port = p.port;
-                            let proto = p.protocol.as_deref().unwrap_or("TCP");
-                            let node_port = p.node_port.map(|np| format!(":{np}")).unwrap_or_default();
-                            format!("{port}{node_port}/{proto}")
-                        })
-                        .collect::<Vec<_>>()
-                        .join(",")
-                })
-                .unwrap_or_default();
+    Ok(svcs.items.into_iter().map(service_to_info).collect())
+}
 
-            ServiceInfo {
-                name,
-                namespace,
-                service_type,
-                cluster_ip,
-                external_ip,
-                ports,
-                age: fmt_age(&s.metadata.creation_timestamp),
+pub fn ingress_to_info(ing: Ingress) -> IngressInfo {
+    let name = ing.metadata.name.unwrap_or_default();
+    let namespace = ing.metadata.namespace.unwrap_or_default();
+    let class = ing
+        .spec
+        .as_ref()
+        .and_then(|sp| sp.ingress_class_name.clone())
+        .unwrap_or_else(|| "default".to_string());
+    let hosts = ing
+        .spec
+        .as_ref()
+        .and_then(|sp| sp.rules.as_ref())
+        .map(|rules| {
+            rules
+                .iter()
+                .filter_map(|r| r.host.clone())
+                .collect::<Vec<_>>()
+                .join(",")
+        })
+        .unwrap_or_default();
+    let address = ing
+        .status
+        .as_ref()
+        .and_then(|st| st.load_balancer.as_ref())
+        .and_then(|lb| lb.ingress.as_ref())
+        .and_then(|entries| entries.first())
+        .and_then(|i| i.ip.clone().or_else(|| i.hostname.clone()))
+        .unwrap_or_else(|| "—".to_string());
+    let ports = ing
+        .spec
+        .as_ref()
+        .and_then(|sp| sp.tls.as_ref())
+        .map(|tls| {
+            if tls.is_empty() {
+                "80".to_string()
+            } else {
+                "80,443".to_string()
             }
         })
-        .collect();
+        .unwrap_or_else(|| "80".to_string());
 
-    Ok(infos)
+    IngressInfo {
+        name,
+        namespace,
+        class,
+        hosts,
+        address,
+        ports,
+        age: fmt_age(&ing.metadata.creation_timestamp),
+    }
 }
 
 pub async fn list_ingresses(context: Option<String>) -> Result<Vec<IngressInfo>, String> {
@@ -533,63 +554,22 @@ pub async fn list_ingresses(context: Option<String>) -> Result<Vec<IngressInfo>,
         .await
         .map_err(|e| format!("Failed to list ingresses: {e}"))?;
 
-    let infos: Vec<IngressInfo> = ingresses
-        .items
-        .into_iter()
-        .map(|ing| {
-            let name = ing.metadata.name.unwrap_or_default();
-            let namespace = ing.metadata.namespace.unwrap_or_default();
-            let class = ing
-                .spec
-                .as_ref()
-                .and_then(|sp| sp.ingress_class_name.clone())
-                .unwrap_or_else(|| "default".to_string());
-            let hosts = ing
-                .spec
-                .as_ref()
-                .and_then(|sp| sp.rules.as_ref())
-                .map(|rules| {
-                    rules
-                        .iter()
-                        .filter_map(|r| r.host.clone())
-                        .collect::<Vec<_>>()
-                        .join(",")
-                })
-                .unwrap_or_default();
-            let address = ing
-                .status
-                .as_ref()
-                .and_then(|st| st.load_balancer.as_ref())
-                .and_then(|lb| lb.ingress.as_ref())
-                .and_then(|entries| entries.first())
-                .and_then(|i| i.ip.clone().or_else(|| i.hostname.clone()))
-                .unwrap_or_else(|| "—".to_string());
-            let ports = ing
-                .spec
-                .as_ref()
-                .and_then(|sp| sp.tls.as_ref())
-                .map(|tls| {
-                    if tls.is_empty() {
-                        "80".to_string()
-                    } else {
-                        "80,443".to_string()
-                    }
-                })
-                .unwrap_or_else(|| "80".to_string());
+    Ok(ingresses.items.into_iter().map(ingress_to_info).collect())
+}
 
-            IngressInfo {
-                name,
-                namespace,
-                class,
-                hosts,
-                address,
-                ports,
-                age: fmt_age(&ing.metadata.creation_timestamp),
-            }
-        })
-        .collect();
-
-    Ok(infos)
+pub fn configmap_to_info(cm: ConfigMap) -> ConfigMapInfo {
+    let data_count = cm
+        .data
+        .as_ref()
+        .map(|d| d.len())
+        .or_else(|| cm.binary_data.as_ref().map(|d| d.len()))
+        .unwrap_or(0);
+    ConfigMapInfo {
+        name: cm.metadata.name.unwrap_or_default(),
+        namespace: cm.metadata.namespace.unwrap_or_default(),
+        data: data_count.to_string(),
+        age: fmt_age(&cm.metadata.creation_timestamp),
+    }
 }
 
 pub async fn list_configmaps(context: Option<String>) -> Result<Vec<ConfigMapInfo>, String> {
@@ -599,26 +579,19 @@ pub async fn list_configmaps(context: Option<String>) -> Result<Vec<ConfigMapInf
         .await
         .map_err(|e| format!("Failed to list configmaps: {e}"))?;
 
-    let infos: Vec<ConfigMapInfo> = cms
-        .items
-        .into_iter()
-        .map(|cm| {
-            let data_count = cm
-                .data
-                .as_ref()
-                .map(|d| d.len())
-                .or_else(|| cm.binary_data.as_ref().map(|d| d.len()))
-                .unwrap_or(0);
-            ConfigMapInfo {
-                name: cm.metadata.name.unwrap_or_default(),
-                namespace: cm.metadata.namespace.unwrap_or_default(),
-                data: data_count.to_string(),
-                age: fmt_age(&cm.metadata.creation_timestamp),
-            }
-        })
-        .collect();
+    Ok(cms.items.into_iter().map(configmap_to_info).collect())
+}
 
-    Ok(infos)
+
+
+pub fn secret_to_info(sec: Secret) -> SecretInfo {
+    SecretInfo {
+        name: sec.metadata.name.unwrap_or_default(),
+        namespace: sec.metadata.namespace.unwrap_or_default(),
+        secret_type: sec.type_.clone().unwrap_or_else(|| "Opaque".to_string()),
+        data: sec.data.as_ref().map(|d| d.len().to_string()).unwrap_or_default(),
+        age: fmt_age(&sec.metadata.creation_timestamp),
+    }
 }
 
 pub async fn list_secrets(context: Option<String>) -> Result<Vec<SecretInfo>, String> {
@@ -628,25 +601,48 @@ pub async fn list_secrets(context: Option<String>) -> Result<Vec<SecretInfo>, St
         .await
         .map_err(|e| format!("Failed to list secrets: {e}"))?;
 
-    let infos: Vec<SecretInfo> = secrets
-        .items
-        .into_iter()
-        .map(|sec| {
-            let data_count = sec.data.as_ref().map(|d| d.len()).unwrap_or(0);
-            SecretInfo {
-                name: sec.metadata.name.unwrap_or_default(),
-                namespace: sec.metadata.namespace.unwrap_or_default(),
-                secret_type: sec
-                    .type_
-                    .clone()
-                    .unwrap_or_else(|| "Opaque".to_string()),
-                data: data_count.to_string(),
-                age: fmt_age(&sec.metadata.creation_timestamp),
-            }
-        })
-        .collect();
+    Ok(secrets.items.into_iter().map(secret_to_info).collect())
+}
 
-    Ok(infos)
+pub fn pvc_to_info(pvc: PersistentVolumeClaim) -> PvcInfo {
+    let status = pvc
+        .status
+        .as_ref()
+        .and_then(|s| s.phase.clone())
+        .unwrap_or_else(|| "Unknown".to_string());
+    let volume = pvc
+        .spec
+        .as_ref()
+        .and_then(|s| s.volume_name.clone())
+        .unwrap_or_else(|| "—".to_string());
+    let capacity = pvc
+        .status
+        .as_ref()
+        .and_then(|s| s.capacity.as_ref())
+        .and_then(|c| c.get("storage").map(|q| q.0.clone()))
+        .unwrap_or_else(|| "—".to_string());
+    let access_modes = pvc
+        .spec
+        .as_ref()
+        .and_then(|s| s.access_modes.as_ref())
+        .map(|modes| modes.join(","))
+        .unwrap_or_default();
+    let storageclass = pvc
+        .spec
+        .as_ref()
+        .and_then(|s| s.storage_class_name.clone())
+        .unwrap_or_else(|| "—".to_string());
+
+    PvcInfo {
+        name: pvc.metadata.name.unwrap_or_default(),
+        namespace: pvc.metadata.namespace.unwrap_or_default(),
+        status,
+        volume,
+        capacity,
+        access_modes,
+        storageclass,
+        age: fmt_age(&pvc.metadata.creation_timestamp),
+    }
 }
 
 pub async fn list_persistentvolumeclaims(
@@ -658,52 +654,7 @@ pub async fn list_persistentvolumeclaims(
         .await
         .map_err(|e| format!("Failed to list PVCs: {e}"))?;
 
-    let infos: Vec<PvcInfo> = pvcs
-        .items
-        .into_iter()
-        .map(|pvc| {
-            let status = pvc
-                .status
-                .as_ref()
-                .and_then(|s| s.phase.clone())
-                .unwrap_or_else(|| "Unknown".to_string());
-            let volume = pvc
-                .spec
-                .as_ref()
-                .and_then(|s| s.volume_name.clone())
-                .unwrap_or_else(|| "—".to_string());
-            let capacity = pvc
-                .status
-                .as_ref()
-                .and_then(|s| s.capacity.as_ref())
-                .and_then(|c| c.get("storage").map(|q| q.0.clone()))
-                .unwrap_or_else(|| "—".to_string());
-            let access_modes = pvc
-                .spec
-                .as_ref()
-                .and_then(|s| s.access_modes.as_ref())
-                .map(|modes| modes.join(","))
-                .unwrap_or_default();
-            let storageclass = pvc
-                .spec
-                .as_ref()
-                .and_then(|s| s.storage_class_name.clone())
-                .unwrap_or_else(|| "—".to_string());
-
-            PvcInfo {
-                name: pvc.metadata.name.unwrap_or_default(),
-                namespace: pvc.metadata.namespace.unwrap_or_default(),
-                status,
-                volume,
-                capacity,
-                access_modes,
-                storageclass,
-                age: fmt_age(&pvc.metadata.creation_timestamp),
-            }
-        })
-        .collect();
-
-    Ok(infos)
+    Ok(pvcs.items.into_iter().map(pvc_to_info).collect())
 }
 
 pub async fn get_pod_logs(

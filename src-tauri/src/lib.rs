@@ -1,5 +1,8 @@
 mod clusters;
 mod k8s;
+mod watchers;
+
+
 
 #[tauri::command]
 fn list_clusters() -> Result<Vec<clusters::ClusterInfo>, String> {
@@ -87,10 +90,36 @@ async fn get_events(
     k8s::get_events(context, name, namespace).await
 }
 
+#[tauri::command]
+async fn start_watchers(
+    app_handle: tauri::AppHandle,
+    context: String,
+    state: tauri::State<'_, watchers::WatcherManager>,
+) -> Result<(), String> {
+    let resource_types = [
+        "pods", "nodes", "deployments", "statefulsets", "services",
+        "ingresses", "configmaps", "secrets", "pvcs",
+    ];
+    for rt in resource_types {
+        state.start(app_handle.clone(), context.clone(), rt.to_string()).await?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn stop_watchers(
+    context: String,
+    state: tauri::State<'_, watchers::WatcherManager>,
+) -> Result<(), String> {
+    state.stop_all(&context).await;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .manage(watchers::WatcherManager::new())
         .invoke_handler(tauri::generate_handler![
             list_clusters,
             cluster_health,
@@ -106,6 +135,8 @@ pub fn run() {
             get_pod_logs,
             get_yaml,
             get_events,
+            start_watchers,
+            stop_watchers,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
