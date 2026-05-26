@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Hexagon, X, Command } from "lucide-react";
 import { mono } from "../theme";
 import { ClusterDropdown } from "./ClusterDropdown";
 
@@ -53,7 +54,7 @@ export function TopBar({
             letterSpacing: "0.15em",
           }}
         >
-          ⬡ k11s
+          <Hexagon size={18} style={{ verticalAlign: "middle", marginRight: 4 }} /> k11s
         </span>
       </div>
       <ClusterDropdown
@@ -138,7 +139,7 @@ export function TopBar({
                   e.currentTarget.style.background = "transparent";
                 }}
               >
-                ✕
+                <X size={14} />
               </span>
             </button>
           );
@@ -159,7 +160,7 @@ export function TopBar({
             fontSize: "0.67rem",
           }}
         >
-          ⌘K
+          <Command size={14} />K
         </button>
         <span style={{ color: "#0e1f2e", ...mono, fontSize: "0.67rem" }}>{clock.toLocaleTimeString()}</span>
       </div>

@@ -1,13 +1,15 @@
+import { Hexagon, Box, Layers, Database, Radio, ArrowRightLeft, FileText, Lock, HardDrive } from "lucide-react";
+
 export const RESOURCE_TYPES = [
-  { key: "nodes", label: "Nodes", icon: "⬡", cmd: "list_nodes", shortcut: "N" },
-  { key: "pods", label: "Pods", icon: "◎", cmd: "list_pods", shortcut: "P" },
-  { key: "deployments", label: "Deployments", icon: "⬢", cmd: "list_deployments", shortcut: "D" },
-  { key: "statefulsets", label: "StatefulSets", icon: "◈", cmd: "list_statefulsets", shortcut: "S" },
-  { key: "services", label: "Services", icon: "◉", cmd: "list_services", shortcut: "V" },
-  { key: "ingresses", label: "Ingresses", icon: "⟹", cmd: "list_ingresses", shortcut: "I" },
-  { key: "configmaps", label: "ConfigMaps", icon: "≡", cmd: "list_configmaps", shortcut: "C" },
-  { key: "secrets", label: "Secrets", icon: "⬟", cmd: "list_secrets", shortcut: "X" },
-  { key: "pvcs", label: "Volumes", icon: "⬛", cmd: "list_persistentvolumeclaims", shortcut: "L" },
+  { key: "nodes", label: "Nodes", icon: <Hexagon size={12} />, cmd: "list_nodes", shortcut: "N" },
+  { key: "pods", label: "Pods", icon: <Box size={12} />, cmd: "list_pods", shortcut: "P" },
+  { key: "deployments", label: "Deployments", icon: <Layers size={12} />, cmd: "list_deployments", shortcut: "D" },
+  { key: "statefulsets", label: "StatefulSets", icon: <Database size={12} />, cmd: "list_statefulsets", shortcut: "S" },
+  { key: "services", label: "Services", icon: <Radio size={12} />, cmd: "list_services", shortcut: "V" },
+  { key: "ingresses", label: "Ingresses", icon: <ArrowRightLeft size={12} />, cmd: "list_ingresses", shortcut: "I" },
+  { key: "configmaps", label: "ConfigMaps", icon: <FileText size={12} />, cmd: "list_configmaps", shortcut: "C" },
+  { key: "secrets", label: "Secrets", icon: <Lock size={12} />, cmd: "list_secrets", shortcut: "X" },
+  { key: "pvcs", label: "Volumes", icon: <HardDrive size={12} />, cmd: "list_persistentvolumeclaims", shortcut: "L" },
 ];
 
 export const COLUMNS = {

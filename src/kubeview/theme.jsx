@@ -40,4 +40,12 @@ export const ENV_STYLE = {
   dev: { bg: "#081a0a", border: "#39ff8a44", text: "#39ff8a" },
 };
 
-export const PROVIDER_ICON = { eks: "☁", gke: "◈", kind: "⬡", aks: "△", k8s: "◇" };
+import { Cloud, Hexagon, Box, Triangle, Circle } from "lucide-react";
+
+export const PROVIDER_ICON = {
+  eks: <Cloud size={12} />,
+  gke: <Hexagon size={12} />,
+  kind: <Box size={12} />,
+  aks: <Triangle size={12} />,
+  k8s: <Circle size={12} />,
+};

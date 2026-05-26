@@ -1,3 +1,4 @@
+import { ScrollText, Terminal, ArrowUpDown, RefreshCw, Edit, Trash2, AlertTriangle } from "lucide-react";
 import { RESOURCE_TYPES } from "../constants";
 import { STATUS_COLOR, mono } from "../theme";
 import { nsColor } from "../utils/colors";
@@ -11,10 +12,10 @@ export function DetailHeader({ obj, type, onGoTab }) {
   const actions = [
     ...(type === "pods"
       ? [
-          { label: "Logs", icon: "📋", color: "#fde68a", fn: () => onGoTab("logs") },
+          { label: "Logs", icon: <ScrollText size={14} />, color: "#fde68a", fn: () => onGoTab("logs") },
           {
             label: "Shell",
-            icon: "$_",
+            icon: <Terminal size={14} />,
             color: "#c4b5fd",
             fn: () => alert(`kubectl exec -it ${obj.name} -n ${obj.namespace} -- sh`),
           },
@@ -22,12 +23,12 @@ export function DetailHeader({ obj, type, onGoTab }) {
       : []),
     ...(type === "deployments" || type === "statefulsets"
       ? [
-          { label: "Scale", icon: "⇅", color: "#f9a8d4", fn: () => alert("Scale") },
-          { label: "Redeploy", icon: "↺", color: "#67e8f9", fn: () => alert("Restart") },
+          { label: "Scale", icon: <ArrowUpDown size={14} />, color: "#f9a8d4", fn: () => alert("Scale") },
+          { label: "Redeploy", icon: <RefreshCw size={14} />, color: "#67e8f9", fn: () => alert("Restart") },
         ]
       : []),
-    { label: "Edit YAML", icon: "✏️", color: "#fb923c", fn: () => onGoTab("yaml") },
-    { label: "Delete", icon: "🗑", color: "#ff4d4d", fn: () => alert(`Delete ${obj.name}`) },
+    { label: "Edit YAML", icon: <Edit size={14} />, color: "#fb923c", fn: () => onGoTab("yaml") },
+    { label: "Delete", icon: <Trash2 size={14} />, color: "#ff4d4d", fn: () => alert(`Delete ${obj.name}`) },
   ];
 
   return (
@@ -38,7 +39,7 @@ export function DetailHeader({ obj, type, onGoTab }) {
             {obj.name}
           </span>
           <Pill label={kindLbl} color={statCol} />
-          {isErr && <Pill label="⚠ degraded" color="#ff4d4d" />}
+          {isErr && <Pill label={<span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><AlertTriangle size={12} /> degraded</span>} color="#ff4d4d" />}
         </div>
         <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
           {obj.namespace && (
@@ -77,8 +78,8 @@ export function DetailHeader({ obj, type, onGoTab }) {
               e.currentTarget.style.background = "#0a1018";
             }}
           >
-            <span>{a.icon}</span>
-            {a.label}
+            {a.icon}
+            <span>{a.label}</span>
           </button>
         ))}
       </div>

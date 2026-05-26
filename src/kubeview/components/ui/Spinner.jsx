@@ -1,5 +1,7 @@
+import { Loader2 } from "lucide-react";
+
 export function Spinner() {
   return (
-    <span style={{ display: "inline-block", animation: "spin 0.7s linear infinite" }}>⟳</span>
+    <Loader2 size={16} style={{ animation: "spin 0.7s linear infinite" }} />
   );
 }

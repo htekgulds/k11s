@@ -1,3 +1,4 @@
+import { Hexagon, AlertTriangle, Plus } from "lucide-react";
 import { RESOURCE_TYPES } from "../constants";
 import { ENV_STYLE, PROVIDER_ICON, mono } from "../theme";
 
@@ -20,7 +21,7 @@ export function ClustersTab({
             letterSpacing: "0.1em",
           }}
         >
-          ⬡ Clusters
+          <Hexagon size={20} style={{ verticalAlign: "middle", marginRight: 4 }} /> Clusters
         </span>
         <span style={{ fontSize: "0.67rem", color: "#1e3a52", ...mono }}>
           {clusters.length} registered
@@ -140,7 +141,7 @@ export function ClustersTab({
                     Provider
                   </span>
                   <span style={{ fontSize: "0.72rem", color: "#7dd3fc", ...mono }}>
-                    {PROVIDER_ICON[cl.provider] || "◇"} {(cl.provider || "k8s").toUpperCase()}
+                    {PROVIDER_ICON[cl.provider] || PROVIDER_ICON.k8s} {(cl.provider || "k8s").toUpperCase()}
                   </span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -245,7 +246,7 @@ export function ClustersTab({
                       key={p.name}
                       style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}
                     >
-                      <span style={{ color: "#ff4d4d", fontSize: "0.65rem" }}>⚠</span>
+                      <AlertTriangle size={12} style={{ color: "#ff4d4d", flexShrink: 0 }} />
                       <span style={{ color: "#ff6060", ...mono, fontSize: "0.67rem" }}>{p.name}</span>
                       <span style={{ color: "#ff4d4d", ...mono, fontSize: "0.65rem", marginLeft: "auto" }}>
                         {p.status}
@@ -330,7 +331,7 @@ export function ClustersTab({
             e.currentTarget.style.borderColor = "#0a1420";
           }}
         >
-          <span style={{ fontSize: "1.5rem", color: "#0e1f2e" }}>+</span>
+          <Plus size={28} style={{ color: "#0e1f2e" }} />
           <span style={{ fontSize: "0.72rem", color: "#1e3a52", ...mono }}>Add cluster</span>
           <span style={{ fontSize: "0.64rem", color: "#0e1f2e", ...mono }}>
             Import kubeconfig or add context

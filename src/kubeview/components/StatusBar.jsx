@@ -1,3 +1,4 @@
+import { Circle, Command } from "lucide-react";
 import { mono } from "../theme";
 
 export function StatusBar({ activeCluster, connected, version }) {
@@ -17,12 +18,12 @@ export function StatusBar({ activeCluster, connected, version }) {
         color: "#0e1f2e",
       }}
     >
-      <span style={{ color: connected ? "#39ff8a" : "#ff4d4d", animation: connected ? "pulse 2.5s infinite" : "none" }}>
-        ● {connected ? "CONNECTED" : "DISCONNECTED"}
+      <span style={{ color: connected ? "#39ff8a" : "#ff4d4d", display: "inline-flex", alignItems: "center", gap: 4, animation: connected ? "pulse 2.5s infinite" : "none" }}>
+        <Circle size={10} fill="currentColor" /> {connected ? "CONNECTED" : "DISCONNECTED"}
       </span>
       <span style={{ color: activeCluster?.color }}>{activeCluster?.label}</span>
       <span>{activeCluster?.context}</span>
-      <span style={{ marginLeft: "auto" }}>⌘K palette · NPDSVICXL open resource tabs</span>
+      <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 2 }}><Command size={10} />K palette · NPDSVICXL open resource tabs</span>
       <span>{version}</span>
     </div>
   );

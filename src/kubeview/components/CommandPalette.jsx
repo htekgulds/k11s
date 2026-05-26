@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Command } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { mono } from "../theme";
 
@@ -65,7 +66,7 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
             gap: 9,
           }}
         >
-          <span style={{ color: "#39ff8a", fontSize: "0.85rem" }}>⌘</span>
+          <Command size={16} style={{ color: "#39ff8a" }} />
           <input
             ref={inputRef}
             value={query}
