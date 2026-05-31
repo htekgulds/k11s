@@ -151,7 +151,7 @@ export default function KubeClient() {
     };
   }, []);
 
-  // Start/stop watchers when active cluster changes
+  // Start/stop watchers when active cluster or connection status changes
   useEffect(() => {
     if (!activeClusterId) return;
 
@@ -168,18 +168,25 @@ export default function KubeClient() {
       return { ...prev, [activeClusterId]: {} };
     });
 
-    startWatchers(activeClusterId).catch((err) => {
-      console.error("Failed to start watchers:", err);
+    if (connected) {
+      startWatchers(activeClusterId).catch((err) => {
+        console.error("Failed to start watchers:", err);
+        setClusterLoading((prev) => ({
+          ...prev,
+          [activeClusterId]: Object.fromEntries(RESOURCE_TYPES.map((rt) => [rt.key, false])),
+        }));
+      });
+    } else {
       setClusterLoading((prev) => ({
         ...prev,
         [activeClusterId]: Object.fromEntries(RESOURCE_TYPES.map((rt) => [rt.key, false])),
       }));
-    });
+    }
 
     return () => {
       stopWatchers(activeClusterId).catch(() => {});
     };
-  }, [activeClusterId]);
+  }, [activeClusterId, connected]);
 
   useEffect(() => {
     listClusters()

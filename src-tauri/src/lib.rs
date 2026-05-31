@@ -96,6 +96,7 @@ async fn start_watchers(
     context: String,
     state: tauri::State<'_, watchers::WatcherManager>,
 ) -> Result<(), String> {
+    k8s::cluster_health(Some(context.clone())).await?;
     let resource_types = [
         "pods", "nodes", "deployments", "statefulsets", "services",
         "ingresses", "configmaps", "secrets", "pvcs",
