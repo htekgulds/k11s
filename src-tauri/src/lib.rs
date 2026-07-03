@@ -138,6 +138,8 @@ async fn stop_watchers(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Apply CLI args before Tauri initializes (e.g. --kubeconfig <path>)
+    clusters::apply_cli_args();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

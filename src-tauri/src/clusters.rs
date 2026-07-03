@@ -210,6 +210,39 @@ pub fn remove_kubeconfig_path(path: &str) -> Result<Vec<ClusterInfo>, String> {
     list_clusters()
 }
 
+/// Parse CLI args from the command line and apply them to the app config.
+/// Called once at startup before the Tauri app initializes.
+/// Currently handles `--kubeconfig <path>`.
+pub fn apply_cli_args() {
+    let args: Vec<String> = std::env::args().collect();
+    let mut i = 1;
+    while i < args.len() {
+        let arg = &args[i];
+        if arg == "--kubeconfig" || arg == "-k" {
+            if i + 1 < args.len() {
+                let path = args[i + 1].clone();
+                let mut config = read_app_config();
+                if !config.kubeconfigs.iter().any(|p| p == &path) {
+                    if std::path::Path::new(&path).exists() {
+                        config.kubeconfigs.push(path);
+                        if let Err(e) = write_app_config(&config) {
+                            eprintln!("Failed to save --kubeconfig path: {e}");
+                        }
+                    } else {
+                        eprintln!("Warning: --kubeconfig path does not exist: {path}");
+                    }
+                }
+                i += 2;
+            } else {
+                eprintln!("Warning: --kubeconfig requires a path argument");
+                i += 1;
+            }
+        } else {
+            i += 1;
+        }
+    }
+}
+
 pub fn list_clusters() -> Result<Vec<ClusterInfo>, String> {
     let kc = load_merged_kubeconfig()?;
 
