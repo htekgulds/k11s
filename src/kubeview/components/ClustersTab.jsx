@@ -1,6 +1,7 @@
-import { Hexagon, AlertTriangle, Plus } from "lucide-react";
+import { Hexagon, AlertTriangle, Plus, FileInput } from "lucide-react";
 import { RESOURCE_TYPES } from "../constants";
 import { ENV_STYLE, PROVIDER_ICON, mono } from "../theme";
+import { useState } from "react";
 
 export function ClustersTab({
   clusters,
@@ -11,7 +12,22 @@ export function ClustersTab({
   onOpenResource,
   onAddCluster,
   onRemoveKubeconfigPath,
+  onAddKubeconfigByPath,
 }) {
+  const [manualPath, setManualPath] = useState("");
+  const [showManualInput, setShowManualInput] = useState(false);
+
+  const handleSubmitManualPath = async () => {
+    const trimmed = manualPath.trim();
+    if (!trimmed) return;
+    try {
+      await onAddKubeconfigByPath(trimmed);
+      setManualPath("");
+      setShowManualInput(false);
+    } catch (e) {
+      console.error("Failed to add kubeconfig path:", e);
+    }
+  };
   return (
     <div style={{ height: "100%", overflowY: "auto", padding: "20px 24px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
@@ -398,6 +414,70 @@ export function ClustersTab({
               </button>
             </div>
           ))}
+          <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            {showManualInput ? (
+              <>
+                <input
+                  type="text"
+                  value={manualPath}
+                  onChange={(e) => setManualPath(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSubmitManualPath();
+                    if (e.key === "Escape") {
+                      setShowManualInput(false);
+                      setManualPath("");
+                    }
+                  }}
+                  placeholder="/path/to/kubeconfig.yaml"
+                  autoFocus
+                  style={{
+                    flex: 1,
+                    background: "#080e18",
+                    border: "1px solid #0e1f2e",
+                    borderRadius: 4,
+                    color: "#7dd3fc",
+                    padding: "4px 8px",
+                    fontFamily: "inherit",
+                    fontSize: "0.65rem",
+                    outline: "none",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSubmitManualPath}
+                  style={{
+                    background: "#0e1f2e",
+                    border: "1px solid #1a3a4a",
+                    borderRadius: 4,
+                    color: "#39ff8a",
+                    cursor: "pointer",
+                    padding: "4px 10px",
+                    fontSize: "0.62rem",
+                    ...mono,
+                  }}
+                >
+                  Add
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowManualInput(true)}
+                style={{
+                  background: "none",
+                  border: "1px dashed #1a2030",
+                  borderRadius: 4,
+                  color: "#1e3a52",
+                  cursor: "pointer",
+                  padding: "4px 10px",
+                  fontSize: "0.62rem",
+                  ...mono,
+                }}
+              >
+                + Type a path
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
