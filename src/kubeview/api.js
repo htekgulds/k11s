@@ -60,3 +60,11 @@ export async function getKubeconfigPaths() {
 export async function removeKubeconfigPath(path) {
   return invoke("remove_kubeconfig_path", { path });
 }
+
+export async function getDefaultContext() {
+  return invoke("get_default_context");
+}
+
+export async function addKubeconfigByPath(path) {
+  return invoke("add_kubeconfig_files", { filePaths: [path] });
+}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Plus } from "lucide-react";
-import { addKubeconfig, clusterHealth, getKubeconfigPaths, k8sInvoke, listClusters, onResourceUpdate, removeKubeconfigPath, startWatchers, stopWatchers } from "./api";
+import { addKubeconfig, addKubeconfigByPath, clusterHealth, getDefaultContext, getKubeconfigPaths, k8sInvoke, listClusters, onResourceUpdate, removeKubeconfigPath, startWatchers, stopWatchers } from "./api";
 import { defaultNavState, RESOURCE_TYPES } from "./constants";
 
 import { CommandPalette } from "./components/CommandPalette";
@@ -196,8 +196,18 @@ export default function KubeClient() {
         const colored = assignClusterColors(list);
         setClusters(colored);
         setClustersError(null);
-        const initial = colored[0]?.id;
-        if (initial) setActiveClusterId(initial);
+        // Auto-select default context if set via --context CLI flag
+        getDefaultContext().then((ctx) => {
+          if (ctx && colored.find((c) => c.id === ctx)) {
+            setActiveClusterId(ctx);
+          } else {
+            const initial = colored[0]?.id;
+            if (initial) setActiveClusterId(initial);
+          }
+        }).catch(() => {
+          const initial = colored[0]?.id;
+          if (initial) setActiveClusterId(initial);
+        });
       })
       .catch((err) => setClustersError(String(err)));
     getKubeconfigPaths().then(setKubeconfigPaths).catch(() => {});
@@ -226,6 +236,20 @@ export default function KubeClient() {
     setClustersError(null);
     setActiveClusterId((prev) => prev || colored[0]?.id || null);
     getKubeconfigPaths().then(setKubeconfigPaths).catch(() => {});
+  }, []);
+
+  const handleAddKubeconfigByPath = useCallback(async (path) => {
+    try {
+      const updated = await addKubeconfigByPath(path);
+      if (!updated) return;
+      const colored = assignClusterColors(updated);
+      setClusters(colored);
+      setClustersError(null);
+      setActiveClusterId((prev) => prev || colored[0]?.id || null);
+      getKubeconfigPaths().then(setKubeconfigPaths).catch(() => {});
+    } catch (e) {
+      console.error("Failed to add kubeconfig by path:", e);
+    }
   }, []);
 
   const switchCluster = useCallback((cid) => {
@@ -514,6 +538,7 @@ export default function KubeClient() {
           loading={loading}
           onOpenResource={openResourceView}
           onAddCluster={handleAddCluster}
+          onAddKubeconfigByPath={handleAddKubeconfigByPath}
         />
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
