@@ -128,6 +128,11 @@ fn remove_kubeconfig_path(path: String) -> Result<Vec<clusters::ClusterInfo>, St
 }
 
 #[tauri::command]
+fn get_default_context() -> Option<String> {
+    clusters::get_default_context()
+}
+
+#[tauri::command]
 async fn stop_watchers(
     context: String,
     state: tauri::State<'_, watchers::WatcherManager>,
@@ -165,6 +170,7 @@ pub fn run() {
             add_kubeconfig_folder,
             get_kubeconfig_paths,
             remove_kubeconfig_path,
+            get_default_context,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
