@@ -3,15 +3,20 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 
 export async function addKubeconfig() {
-  const selected = await open({
-    multiple: false,
+  const files = await open({
+    multiple: true,
     filters: [{
       name: "Kubeconfig",
       extensions: ["yaml", "yml", "json", "conf", "kubeconfig"],
     }],
   });
-  if (!selected) return null;
-  return invoke("add_kubeconfig", { filePath: selected });
+  if (files) {
+    const paths = Array.isArray(files) ? files : [files];
+    return invoke("add_kubeconfig_files", { filePaths: paths });
+  }
+  const folder = await open({ directory: true, multiple: false });
+  if (!folder) return null;
+  return invoke("add_kubeconfig_folder", { folderPath: folder });
 }
 
 export async function listClusters() {

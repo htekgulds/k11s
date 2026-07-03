@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { Plus } from "lucide-react";
 import { addKubeconfig, clusterHealth, k8sInvoke, listClusters, onResourceUpdate, startWatchers, stopWatchers } from "./api";
 import { defaultNavState, RESOURCE_TYPES } from "./constants";
 
@@ -221,6 +222,7 @@ export default function KubeClient() {
     const colored = assignClusterColors(updated);
     setClusters(colored);
     setClustersError(null);
+    setActiveClusterId((prev) => prev || colored[0]?.id || null);
   }, []);
 
   const switchCluster = useCallback((cid) => {
@@ -347,40 +349,47 @@ export default function KubeClient() {
     if (cmdOpen) cmdRef.current?.focus();
   }, [cmdOpen]);
 
-  if (clustersError) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100vh",
-          background: "#060a10",
-          color: "#ff4d4d",
-          ...mono,
-          padding: 24,
-          textAlign: "center",
-        }}
-      >
-        Failed to load clusters: {clustersError}
-      </div>
-    );
-  }
-
   if (!activeClusterId || !clusters.length) {
+    const msg = clustersError || "No kubeconfig contexts found. Add a kubeconfig file or folder to get started.";
     return (
       <div
         style={{
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           height: "100vh",
           background: "#060a10",
-          color: "#39ff8a",
+          color: "#4a7a8a",
           ...mono,
+          gap: 16,
         }}
       >
-        Loading clusters…
+        <div style={{ fontSize: "0.85rem", textAlign: "center", maxWidth: 360, lineHeight: "1.5" }}>
+          {msg}
+        </div>
+        <button
+          type="button"
+          onClick={handleAddCluster}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: "#0e1f2e",
+            border: "1px solid #1a3a4a",
+            color: "#bdd",
+            padding: "10px 20px",
+            borderRadius: 6,
+            cursor: "pointer",
+            ...mono,
+            fontSize: "0.85rem",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#1a3a4a"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "#0e1f2e"; }}
+        >
+          <Plus size={18} />
+          Add Cluster
+        </button>
       </div>
     );
   }

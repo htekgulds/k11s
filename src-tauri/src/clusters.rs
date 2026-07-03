@@ -41,9 +41,30 @@ fn read_app_config() -> AppConfig {
     serde_json::from_str(&content).unwrap_or(AppConfig { kubeconfigs: vec![] })
 }
 
+fn write_app_config(config: &AppConfig) -> Result<(), String> {
+    let config_path = config_path().ok_or("Cannot determine config path")?;
+    if let Some(parent) = config_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create config dir: {e}"))?;
+    }
+    let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
+    std::fs::write(&config_path, json).map_err(|e| format!("Failed to write config: {e}"))?;
+    Ok(())
+}
+
+fn context_names_from(path: &str) -> Result<Vec<String>, String> {
+    let kc = Kubeconfig::read_from(path)
+        .map_err(|e| format!("Failed to read {path}: {e}"))?;
+    Ok(kc.contexts.iter().map(|c| c.name.clone()).collect())
+}
+
+fn existing_context_names() -> Vec<String> {
+    load_merged_kubeconfig()
+        .map(|kc| kc.contexts.iter().map(|c| c.name.clone()).collect())
+        .unwrap_or_default()
+}
+
 pub(crate) fn load_merged_kubeconfig() -> Result<Kubeconfig, String> {
-    let mut config = Kubeconfig::read()
-        .map_err(|e| format!("Failed to read kubeconfig: {e}"))?;
+    let mut config = Kubeconfig::read().unwrap_or_default();
 
     let app_config = read_app_config();
     for path in &app_config.kubeconfigs {
@@ -99,22 +120,58 @@ fn infer_region(context: &str, provider: &str) -> String {
     }
 }
 
-pub fn add_kubeconfig_path(path: &str) -> Result<Vec<ClusterInfo>, String> {
-    let mut app_config = read_app_config();
-
+fn add_validated_path(app_config: &mut AppConfig, path: &str) -> Result<(), String> {
     if app_config.kubeconfigs.iter().any(|p| p == path) {
-        return list_clusters();
+        return Ok(());
+    }
+
+    let new_contexts = context_names_from(path);
+    if let Ok(names) = new_contexts {
+        let existing = existing_context_names();
+        if let Some(dup) = names.iter().find(|n| existing.contains(n)) {
+            eprintln!("Skipping {path}: context '{dup}' already exists");
+            return Ok(());
+        }
     }
 
     app_config.kubeconfigs.push(path.to_string());
+    Ok(())
+}
 
-    let config_path = config_path().ok_or("Cannot determine config path")?;
-    if let Some(parent) = config_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create config dir: {e}"))?;
+pub fn add_kubeconfig_paths(paths: &[String]) -> Result<Vec<ClusterInfo>, String> {
+    let mut app_config = read_app_config();
+    for path in paths {
+        if let Err(e) = add_validated_path(&mut app_config, path) {
+            eprintln!("Skipping {path}: {e}");
+        }
     }
-    let json = serde_json::to_string_pretty(&app_config).map_err(|e| e.to_string())?;
-    std::fs::write(&config_path, json).map_err(|e| format!("Failed to write config: {e}"))?;
+    write_app_config(&app_config)?;
+    list_clusters()
+}
 
+pub fn add_kubeconfig_folder(folder: &str) -> Result<Vec<ClusterInfo>, String> {
+    let dir = std::path::Path::new(folder);
+    if !dir.is_dir() {
+        return Err(format!("Not a directory: {folder}"));
+    }
+
+    let mut app_config = read_app_config();
+
+    let mut entries: Vec<_> = std::fs::read_dir(dir)
+        .map_err(|e| format!("Failed to read directory {folder}: {e}"))?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_file())
+        .collect();
+    entries.sort_by_key(|e| e.file_name());
+
+    for entry in &entries {
+        let path_str = entry.path().to_string_lossy().to_string();
+        if let Err(e) = add_validated_path(&mut app_config, &path_str) {
+            eprintln!("Skipping {path_str}: {e}");
+        }
+    }
+
+    write_app_config(&app_config)?;
     list_clusters()
 }
 
@@ -147,10 +204,6 @@ pub fn list_clusters() -> Result<Vec<ClusterInfo>, String> {
             }
         })
         .collect();
-
-    if clusters.is_empty() {
-        return Err("No kubeconfig contexts found".to_string());
-    }
 
     Ok(clusters)
 }
