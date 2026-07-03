@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Plus } from "lucide-react";
-import { addKubeconfig, clusterHealth, k8sInvoke, listClusters, onResourceUpdate, startWatchers, stopWatchers } from "./api";
+import { addKubeconfig, clusterHealth, getKubeconfigPaths, k8sInvoke, listClusters, onResourceUpdate, removeKubeconfigPath, startWatchers, stopWatchers } from "./api";
 import { defaultNavState, RESOURCE_TYPES } from "./constants";
 
 import { CommandPalette } from "./components/CommandPalette";
@@ -64,6 +64,7 @@ export default function KubeClient() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
   const [clock, setClock] = useState(() => new Date());
+  const [kubeconfigPaths, setKubeconfigPaths] = useState([]);
   const cmdRef = useRef(null);
   const unlistenRef = useRef(null);
   const activeIdRef = useRef(activeClusterId);
@@ -199,6 +200,7 @@ export default function KubeClient() {
         if (initial) setActiveClusterId(initial);
       })
       .catch((err) => setClustersError(String(err)));
+    getKubeconfigPaths().then(setKubeconfigPaths).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -223,6 +225,7 @@ export default function KubeClient() {
     setClusters(colored);
     setClustersError(null);
     setActiveClusterId((prev) => prev || colored[0]?.id || null);
+    getKubeconfigPaths().then(setKubeconfigPaths).catch(() => {});
   }, []);
 
   const switchCluster = useCallback((cid) => {
@@ -518,7 +521,7 @@ export default function KubeClient() {
         </div>
       </div>
 
-      <StatusBar activeCluster={activeCluster} connected={connected} version="v0.1.0" />
+      <StatusBar activeCluster={activeCluster} connected={connected} version="v0.1.0" kubeconfigPaths={kubeconfigPaths} onAddCluster={handleAddCluster} />
     </div>
   );
 }
