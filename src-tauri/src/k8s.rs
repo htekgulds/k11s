@@ -8,12 +8,15 @@ use kube::{api::ListParams, Api, Client, Config};
 use serde::Serialize;
 use std::collections::HashMap;
 
+use crate::clusters;
+
 pub(crate) async fn make_client(context: Option<String>) -> Result<Client, String> {
+    let kc = clusters::load_merged_kubeconfig()?;
     let opts = KubeConfigOptions {
         context: context.clone(),
         ..Default::default()
     };
-    let config = Config::from_kubeconfig(&opts)
+    let config = Config::from_custom_kubeconfig(kc, &opts)
         .await
         .map_err(|e| format!("Failed to load kubeconfig: {e}"))?;
     Client::try_from(config).map_err(|e| format!("Failed to create client: {e}"))

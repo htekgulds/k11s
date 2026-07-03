@@ -108,6 +108,11 @@ async fn start_watchers(
 }
 
 #[tauri::command]
+fn add_kubeconfig(file_path: String) -> Result<Vec<clusters::ClusterInfo>, String> {
+    clusters::add_kubeconfig_path(&file_path)
+}
+
+#[tauri::command]
 async fn stop_watchers(
     context: String,
     state: tauri::State<'_, watchers::WatcherManager>,
@@ -120,6 +125,7 @@ async fn stop_watchers(
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(watchers::WatcherManager::new())
         .invoke_handler(tauri::generate_handler![
             list_clusters,
@@ -138,6 +144,7 @@ pub fn run() {
             get_events,
             start_watchers,
             stop_watchers,
+            add_kubeconfig,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

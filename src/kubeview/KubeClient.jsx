@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { clusterHealth, k8sInvoke, listClusters, onResourceUpdate, startWatchers, stopWatchers } from "./api";
+import { addKubeconfig, clusterHealth, k8sInvoke, listClusters, onResourceUpdate, startWatchers, stopWatchers } from "./api";
 import { defaultNavState, RESOURCE_TYPES } from "./constants";
 
 import { CommandPalette } from "./components/CommandPalette";
@@ -214,6 +214,14 @@ export default function KubeClient() {
     const t = setInterval(check, 10000);
     return () => clearInterval(t);
   }, [activeClusterId]);
+
+  const handleAddCluster = useCallback(async () => {
+    const updated = await addKubeconfig();
+    if (!updated) return;
+    const colored = assignClusterColors(updated);
+    setClusters(colored);
+    setClustersError(null);
+  }, []);
 
   const switchCluster = useCallback((cid) => {
     setActiveClusterId(cid);
@@ -493,6 +501,7 @@ export default function KubeClient() {
           data={data}
           loading={loading}
           onOpenResource={openResourceView}
+          onAddCluster={handleAddCluster}
         />
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>

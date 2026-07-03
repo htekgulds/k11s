@@ -1,5 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
+
+export async function addKubeconfig() {
+  const selected = await open({
+    multiple: false,
+    filters: [{
+      name: "Kubeconfig",
+      extensions: ["yaml", "yml", "json", "conf", "kubeconfig"],
+    }],
+  });
+  if (!selected) return null;
+  return invoke("add_kubeconfig", { filePath: selected });
+}
 
 export async function listClusters() {
   return invoke("list_clusters");
