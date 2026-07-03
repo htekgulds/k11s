@@ -175,6 +175,41 @@ pub fn add_kubeconfig_folder(folder: &str) -> Result<Vec<ClusterInfo>, String> {
     list_clusters()
 }
 
+pub fn list_kubeconfig_paths() -> Result<Vec<String>, String> {
+    let config = read_app_config();
+    let mut paths = config.kubeconfigs;
+
+    // Include default kubeconfig path
+    if let Some(home) = std::env::var("HOME").ok() {
+        let default_path = std::path::PathBuf::from(&home).join(".kube").join("config");
+        if default_path.exists() {
+            let canonical = default_path.to_string_lossy().to_string();
+            if !paths.contains(&canonical) {
+                paths.insert(0, canonical);
+            }
+        }
+    }
+
+    // Include KUBECONFIG env var paths
+    if let Ok(kc_env) = std::env::var("KUBECONFIG") {
+        for part in kc_env.split(':') {
+            let p = part.trim().to_string();
+            if !p.is_empty() && !paths.contains(&p) {
+                paths.push(p);
+            }
+        }
+    }
+
+    Ok(paths)
+}
+
+pub fn remove_kubeconfig_path(path: &str) -> Result<Vec<ClusterInfo>, String> {
+    let mut config = read_app_config();
+    config.kubeconfigs.retain(|p| p != path);
+    write_app_config(&config)?;
+    list_clusters()
+}
+
 pub fn list_clusters() -> Result<Vec<ClusterInfo>, String> {
     let kc = load_merged_kubeconfig()?;
 

@@ -6,8 +6,11 @@ export function ClustersTab({
   clusters,
   activeClusterId,
   allClusterData,
+  kubeconfigPaths,
   onSwitch,
   onOpenResource,
+  onAddCluster,
+  onRemoveKubeconfigPath,
 }) {
   return (
     <div style={{ height: "100%", overflowY: "auto", padding: "20px 24px" }}>
@@ -324,6 +327,7 @@ export function ClustersTab({
             cursor: "pointer",
             minHeight: 200,
           }}
+          onClick={onAddCluster}
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = "#1e3a52";
           }}
@@ -338,6 +342,64 @@ export function ClustersTab({
           </span>
         </div>
       </div>
+      {kubeconfigPaths && kubeconfigPaths.length > 0 && (
+        <div
+          style={{
+            marginTop: 20,
+            padding: "12px 14px",
+            background: "#050910",
+            borderTop: "1px solid #0a1018",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "0.59rem",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "#1e3a52",
+              ...mono,
+              marginBottom: 8,
+            }}
+          >
+            Loaded kubeconfig files ({kubeconfigPaths.length})
+          </div>
+          {kubeconfigPaths.map((p) => (
+            <div
+              key={p}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                marginBottom: 4,
+                fontSize: "0.65rem",
+                color: "#2d4a6a",
+                ...mono,
+              }}
+            >
+              <span style={{ color: "#39ff8a", flexShrink: 0 }}>◉</span>
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {p}
+              </span>
+              <button
+                type="button"
+                onClick={() => onRemoveKubeconfigPath(p)}
+                style={{
+                  background: "none",
+                  border: "1px solid #1a2030",
+                  borderRadius: 3,
+                  color: "#ff4d4d",
+                  cursor: "pointer",
+                  padding: "1px 6px",
+                  fontSize: "0.62rem",
+                  ...mono,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
