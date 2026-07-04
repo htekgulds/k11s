@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { COLUMNS } from "../constants";
 import { mono } from "../theme";
@@ -45,6 +45,17 @@ export function ResourceListTab({
       setSortDir(1);
     }
   };
+
+  // Right-click context menu
+  const [ctxMenu, setCtxMenu] = useState(null);
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [ctxMenu]);
+  const ctxAction = (fn) => { fn(); setCtxMenu(null); };
+  const kind = type.replace(/s$/, "");
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -162,6 +173,7 @@ export function ResourceListTab({
                     key={`${row.name}-${i}`}
                     onClick={() => onSelect(row)}
                     onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); onMiddleClick?.(row); } }}
+                    onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, row }); }}
                     style={{
                     borderBottom: "1px solid #060c14",
                     cursor: "pointer",
@@ -225,6 +237,44 @@ export function ResourceListTab({
               )}
             </tbody>
           </table>
+        </div>
+      )}
+      {ctxMenu && (
+        <div
+          style={{
+            position: "fixed",
+            left: ctxMenu.x,
+            top: ctxMenu.y,
+            background: "#0a1420",
+            border: "1px solid #1e3a52",
+            borderRadius: 5,
+            padding: "4px 0",
+            zIndex: 9999,
+            minWidth: 160,
+            ...mono,
+            fontSize: "0.72rem",
+          }}
+        >
+          {[
+            { label: "Copy Name", fn: () => navigator.clipboard.writeText(ctxMenu.row.name) },
+            { label: "Copy Namespace", fn: () => navigator.clipboard.writeText(ctxMenu.row.namespace) },
+            { label: `Copy ${kind}/name`, fn: () => navigator.clipboard.writeText(`${kind}/${ctxMenu.row.name}`) },
+          ].map(({ label, fn }) => (
+            <div
+              key={label}
+              onClick={() => ctxAction(fn)}
+              style={{
+                padding: "6px 16px",
+                color: "#bcc",
+                cursor: "pointer",
+                transition: "background 0.07s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#152238"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              {label}
+            </div>
+          ))}
         </div>
       )}
     </div>
