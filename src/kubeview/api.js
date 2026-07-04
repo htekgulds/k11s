@@ -52,3 +52,7 @@ export function onResourceUpdate(callback) {
     callback(event.payload);
   });
 }
+
+export function applyYaml(context, yamlContent) {
+  return invoke("apply_yaml", { context: context ?? null, yamlContent });
+}

@@ -82,6 +82,14 @@ async fn get_yaml(
 }
 
 #[tauri::command]
+async fn apply_yaml(
+    context: Option<String>,
+    yaml_content: String,
+) -> Result<String, String> {
+    k8s::apply_yaml(context, yaml_content).await
+}
+
+#[tauri::command]
 async fn get_events(
     context: Option<String>,
     name: String,
@@ -146,6 +154,7 @@ pub fn run() {
             list_persistentvolumeclaims,
             get_pod_logs,
             get_yaml,
+            apply_yaml,
             get_events,
             start_watchers,
             stop_watchers,

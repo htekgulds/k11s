@@ -812,6 +812,49 @@ pub async fn get_events(
     Ok(EventsResponse { events: filtered })
 }
 
+/// Apply YAML to the cluster using kubectl apply via stdin.
+pub async fn apply_yaml(
+    context: Option<String>,
+    yaml_content: String,
+) -> Result<String, String> {
+    use tokio::io::AsyncWriteExt;
+
+    let mut cmd = tokio::process::Command::new("kubectl");
+    if let Some(ref ctx) = context {
+        cmd.arg("--context").arg(ctx);
+    }
+    cmd.arg("apply").arg("-f").arg("-");
+
+    cmd.stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn kubectl apply: {e}"))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(yaml_content.as_bytes())
+            .await
+            .map_err(|e| format!("Failed to write YAML to stdin: {e}"))?;
+        // Drop stdin to close it
+        drop(stdin);
+    }
+
+    let output = child
+        .wait_with_output()
+        .await
+        .map_err(|e| format!("Failed to wait for kubectl apply: {e}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    if output.status.success() {
+        Ok(stdout)
+    } else {
+        Err(format!("kubectl apply failed: {stderr}{stdout}"))
+    }
+}
+
 pub async fn cluster_health(context: Option<String>) -> Result<bool, String> {
     let client = make_client(context).await?;
     client
