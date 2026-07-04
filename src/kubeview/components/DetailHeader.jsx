@@ -1,8 +1,32 @@
-import { ScrollText, Terminal, ArrowUpDown, RefreshCw, Edit, Trash2, AlertTriangle } from "lucide-react";
+import { ScrollText, Terminal, ArrowUpDown, RefreshCw, Edit, Trash2, AlertTriangle, Copy, ClipboardCopy } from "lucide-react";
 import { RESOURCE_TYPES } from "../constants";
 import { STATUS_COLOR, mono } from "../theme";
 import { nsColor } from "../utils/colors";
 import { Pill } from "./ui/Pill";
+
+const copyBtn = (txt, label) => (
+  <button
+    type="button"
+    title={`Copy ${label}`}
+    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(txt); }}
+    style={{
+      background: "none",
+      border: "none",
+      cursor: "pointer",
+      color: "#1e3a52",
+      padding: "1px 3px",
+      borderRadius: 3,
+      display: "inline-flex",
+      alignItems: "center",
+      opacity: 0.4,
+      transition: "opacity 0.1s",
+    }}
+    onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+    onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.4"; }}
+  >
+    <Copy size={12} />
+  </button>
+);
 
 export function DetailHeader({ obj, type, onGoTab }) {
   const isErr = ["CrashLoopBackOff", "Error", "OOMKilled", "NotReady"].includes(obj.status);
@@ -38,13 +62,18 @@ export function DetailHeader({ obj, type, onGoTab }) {
           <span style={{ ...mono, fontWeight: 700, fontSize: "0.92rem", color: "#dde", wordBreak: "break-all" }}>
             {obj.name}
           </span>
+          {copyBtn(obj.name, "name")}
+          {obj.namespace && copyBtn(`${obj.namespace}/${obj.name}`, "namespace/name")}
           <Pill label={kindLbl} color={statCol} />
           {isErr && <Pill label={<span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><AlertTriangle size={12} /> degraded</span>} color="#ff4d4d" />}
         </div>
         <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
           {obj.namespace && (
-            <span style={{ fontSize: "0.67rem", color: nsColor(obj.namespace), ...mono }}>
-              ns/{obj.namespace}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: "0.67rem", color: nsColor(obj.namespace), ...mono }}>
+                ns/{obj.namespace}
+              </span>
+              {copyBtn(obj.namespace, "namespace")}
             </span>
           )}
           {obj.age && (
