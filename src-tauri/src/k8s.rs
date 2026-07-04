@@ -820,3 +820,49 @@ pub async fn cluster_health(context: Option<String>) -> Result<bool, String> {
         .map(|_| true)
         .map_err(|e| format!("API unreachable: {e}"))
 }
+
+#[derive(Debug, Serialize)]
+pub struct RolloutResponse {
+    pub success: bool,
+    pub message: String,
+}
+
+/// Run a kubectl rollout subcommand.
+/// action: "restart", "undo", "history", "pause", "resume"
+pub async fn rollout_action(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: String,
+    action: String,
+) -> Result<RolloutResponse, String> {
+    let resource = format!("{}/{}", kind, name);
+    let mut cmd = std::process::Command::new("kubectl");
+    cmd.arg("rollout")
+        .arg(&action)
+        .arg(&resource)
+        .arg("-n")
+        .arg(&namespace);
+
+    if let Some(ctx) = &context {
+        if !ctx.is_empty() {
+            cmd.arg("--context").arg(ctx);
+        }
+    }
+
+    let output = cmd
+        .output()
+        .map_err(|e| format!("Failed to run kubectl: {e}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+    if output.status.success() {
+        Ok(RolloutResponse {
+            success: true,
+            message: stdout,
+        })
+    } else {
+        Err(stderr)
+    }
+}

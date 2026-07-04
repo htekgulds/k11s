@@ -42,6 +42,10 @@ export async function stopWatchers(clusterId) {
   return invoke("stop_watchers", { context: ctx });
 }
 
+export async function rolloutAction(clusterId, kind, name, namespace, action) {
+  return invoke("rollout_action", { context: clusterId ?? null, kind, name, namespace, action });
+}
+
 /**
  * Listen for resource-update events.
  * Returns an unlisten function to be called on cleanup.
