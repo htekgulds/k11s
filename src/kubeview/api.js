@@ -68,3 +68,33 @@ export async function getDefaultContext() {
 export async function addKubeconfigByPath(path) {
   return invoke("add_kubeconfig_files", { filePaths: [path] });
 }
+
+// ── Shell Exec ──────────────────────────────────────────────────────────────
+
+export function execPodShell(context, namespace, pod, container) {
+  return invoke("exec_pod_shell", {
+    context: context ?? null,
+    namespace,
+    pod,
+    container: container ?? null,
+  });
+}
+
+export function execPodStdin(sessionId, data) {
+  return invoke("exec_pod_stdin", { sessionId, data });
+}
+
+export function execPodStop(sessionId) {
+  return invoke("exec_pod_stop", { sessionId });
+}
+
+/**
+ * Listen for shell-output events.
+ * Returns an unlisten function.
+ * @param {(payload: {session_id: string, type: string, data: string|null}) => void} callback
+ */
+export async function onShellOutput(callback) {
+  return listen("shell-output", (event) => {
+    callback(event.payload);
+  });
+}

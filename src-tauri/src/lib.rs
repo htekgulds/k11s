@@ -141,6 +141,29 @@ async fn stop_watchers(
     Ok(())
 }
 
+// ── Shell Exec ──────────────────────────────────────────────────────────────
+
+#[tauri::command]
+async fn exec_pod_shell(
+    context: Option<String>,
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    k8s::exec_pod_shell(context, namespace, pod, container, app_handle).await
+}
+
+#[tauri::command]
+async fn exec_pod_stdin(session_id: String, data: String) -> Result<(), String> {
+    k8s::exec_pod_stdin(session_id, data).await
+}
+
+#[tauri::command]
+async fn exec_pod_stop(session_id: String) -> Result<(), String> {
+    k8s::exec_pod_stop(session_id).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Apply CLI args before Tauri initializes (e.g. --kubeconfig <path>)
@@ -171,6 +194,9 @@ pub fn run() {
             get_kubeconfig_paths,
             remove_kubeconfig_path,
             get_default_context,
+            exec_pod_shell,
+            exec_pod_stdin,
+            exec_pod_stop,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

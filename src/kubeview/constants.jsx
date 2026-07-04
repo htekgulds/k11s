@@ -25,7 +25,7 @@ export const COLUMNS = {
 };
 
 export const DETAIL_TABS_MAP = {
-  pods: ["info", "logs", "yaml", "events", "graph"],
+  pods: ["info", "logs", "shell", "yaml", "events", "graph"],
   deployments: ["info", "yaml", "events", "graph"],
   statefulsets: ["info", "yaml", "events", "graph"],
   services: ["info", "yaml", "graph"],
