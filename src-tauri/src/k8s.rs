@@ -779,20 +779,21 @@ pub async fn get_events(
     namespace: Option<String>,
 ) -> Result<EventsResponse, String> {
     let client = make_client(context).await?;
+
+    let field_sel = match &namespace {
+        Some(ns) => format!("involvedObject.name={},involvedObject.namespace={}", name, ns),
+        None => format!("involvedObject.name={}", name),
+    };
+    let lp = ListParams::default().fields(&field_sel);
+
     let events = Api::<Event>::all(client)
-        .list(&ListParams::default())
+        .list(&lp)
         .await
         .map_err(|e| format!("Failed to list events: {e}"))?;
 
     let filtered: Vec<EventInfo> = events
         .items
         .into_iter()
-        .filter(|ev| {
-            let obj = &ev.involved_object;
-            obj.name.as_deref() == Some(name.as_str())
-                && (namespace.is_none()
-                    || obj.namespace.as_deref() == namespace.as_deref())
-        })
         .map(|ev| {
             let from = ev
                 .source
