@@ -7,6 +7,7 @@ import { defaultNavState, RESOURCE_TYPES } from "./constants";
 import { CommandPalette } from "./components/CommandPalette";
 import { DetailView } from "./components/DetailView";
 import { ResourceListTab } from "./components/ResourceListTab";
+import { ShortcutsModal } from "./components/ShortcutsModal";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { TopBar } from "./components/TopBar";
@@ -63,6 +64,7 @@ export default function KubeClient() {
   const [connected, setConnected] = useState(true);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [clock, setClock] = useState(() => new Date());
   const cmdRef = useRef(null);
   const unlistenRef = useRef(null);
@@ -345,6 +347,13 @@ export default function KubeClient() {
     [openResourceView],
   );
 
+  useHotkeys("?, mod+/", () => setShortcutsOpen((v) => !v), { preventDefault: true, enableOnFormTags: true });
+  useHotkeys("mod+w", (e) => {
+    if (nav.activeTab) {
+      closeTab(nav.activeTab, e);
+    }
+  }, { preventDefault: true }, [nav.activeTab, closeTab]);
+
   useEffect(() => {
     if (cmdOpen) cmdRef.current?.focus();
   }, [cmdOpen]);
@@ -491,6 +500,7 @@ export default function KubeClient() {
           setCmdQuery("");
         }}
       />
+      <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       <TopBar
         clusters={clusters}
