@@ -25,11 +25,15 @@ export const COLUMNS = {
 };
 
 export const DETAIL_TABS_MAP = {
-  pods: ["info", "logs", "yaml", "events", "graph"],
-  deployments: ["info", "yaml", "events", "graph"],
-  statefulsets: ["info", "yaml", "events", "graph"],
-  services: ["info", "yaml", "graph"],
-  nodes: ["info", "yaml", "events", "graph"],
+  pods: ["info", "logs", "yaml", "events", "describe", "graph"],
+  deployments: ["info", "yaml", "events", "describe", "graph"],
+  statefulsets: ["info", "yaml", "events", "describe", "graph"],
+  services: ["info", "yaml", "describe", "graph"],
+  nodes: ["info", "yaml", "events", "describe", "graph"],
+  configmaps: ["info", "yaml", "describe", "graph"],
+  secrets: ["info", "yaml", "describe", "graph"],
+  ingresses: ["info", "yaml", "describe", "graph"],
+  pvcs: ["info", "yaml", "describe", "graph"],
   default: ["info", "yaml", "graph"],
 };
 

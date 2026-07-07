@@ -91,6 +91,16 @@ async fn get_events(
 }
 
 #[tauri::command]
+async fn describe_resource(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: Option<String>,
+) -> Result<k8s::DescribeResponse, String> {
+    k8s::describe_resource(context, kind, name, namespace).await
+}
+
+#[tauri::command]
 async fn start_watchers(
     app_handle: tauri::AppHandle,
     context: String,
@@ -147,6 +157,7 @@ pub fn run() {
             get_pod_logs,
             get_yaml,
             get_events,
+            describe_resource,
             start_watchers,
             stop_watchers,
             add_kubeconfig_files,

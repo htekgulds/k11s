@@ -4,6 +4,7 @@ import { InfoTab } from "./InfoTab";
 import { LogsTab } from "./LogsTab";
 import { YamlTab } from "./YamlTab";
 import { EventsTab } from "./EventsTab";
+import { DescribeTab } from "./DescribeTab";
 import { GraphTab } from "./GraphTab";
 import { DetailHeader } from "./DetailHeader";
 import { DetailTabs } from "./DetailTabs";
@@ -33,6 +34,7 @@ export function DetailView({ obj, type, allData, clusterId, onNavigate }) {
         {subTab === "logs" && <LogsTab obj={obj} clusterId={clusterId} />}
         {subTab === "yaml" && <YamlTab obj={obj} type={type} clusterId={clusterId} />}
         {subTab === "events" && <EventsTab obj={obj} clusterId={clusterId} />}
+        {subTab === "describe" && <DescribeTab obj={obj} clusterId={clusterId} />}
         {subTab === "graph" && <GraphTab graph={graph} allData={allData} onNavigate={onNavigate} />}
       </div>
     </div>
