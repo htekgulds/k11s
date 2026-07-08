@@ -82,6 +82,26 @@ async fn get_yaml(
 }
 
 #[tauri::command]
+async fn apply_yaml(
+    context: Option<String>,
+    yaml_content: String,
+) -> Result<String, String> {
+    k8s::apply_yaml(context, yaml_content).await
+}
+
+#[tauri::command]
+async fn delete_resource(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: String,
+    grace_period_seconds: Option<i64>,
+    force: bool,
+) -> Result<k8s::DeleteResponse, String> {
+    k8s::delete_resource(context, kind, name, namespace, grace_period_seconds, force).await
+}
+
+#[tauri::command]
 async fn get_events(
     context: Option<String>,
     name: String,
@@ -167,6 +187,8 @@ pub fn run() {
             list_persistentvolumeclaims,
             get_pod_logs,
             get_yaml,
+            apply_yaml,
+            delete_resource,
             get_events,
             describe_resource,
             start_watchers,

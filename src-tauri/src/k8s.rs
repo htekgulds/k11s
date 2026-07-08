@@ -5,7 +5,7 @@ use k8s_openapi::api::core::v1::{
 use k8s_openapi::api::networking::v1::Ingress;
 use kube::config::KubeConfigOptions;
 use kube::{api::ListParams, Api, Client, Config};
-use kube::api::{Patch, PatchParams};
+use kube::api::{DeleteParams, Patch, PatchParams};
 use serde::Serialize;
 use serde_json::json;
 use std::collections::HashMap;
@@ -887,6 +887,51 @@ pub async fn get_events(
     Ok(EventsResponse { events: filtered })
 }
 
+
+
+/// Apply YAML to the cluster using kubectl apply via stdin.
+pub async fn apply_yaml(
+    context: Option<String>,
+    yaml_content: String,
+) -> Result<String, String> {
+    use tokio::io::AsyncWriteExt;
+
+    let mut cmd = tokio::process::Command::new("kubectl");
+    if let Some(ref ctx) = context {
+        cmd.arg("--context").arg(ctx);
+    }
+    cmd.arg("apply").arg("-f").arg("-");
+
+    cmd.stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn kubectl apply: {e}"))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(yaml_content.as_bytes())
+            .await
+            .map_err(|e| format!("Failed to write YAML to stdin: {e}"))?;
+        // Drop stdin to close it
+        drop(stdin);
+    }
+
+    let output = child
+        .wait_with_output()
+        .await
+        .map_err(|e| format!("Failed to wait for kubectl apply: {e}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    if output.status.success() {
+        Ok(stdout)
+    } else {
+        Err(format!("kubectl apply failed: {stderr}{stdout}"))
+    }
+}
+
 pub async fn describe_resource(
     context: Option<String>,
     kind: String,
@@ -972,6 +1017,96 @@ pub async fn describe_resource(
 
     let describe = format_describe(&value, 0);
     Ok(DescribeResponse { describe })
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DeleteResponse {
+    pub success: bool,
+    pub message: String,
+}
+
+pub async fn delete_resource(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: String,
+    grace_period_seconds: Option<i64>,
+    force: bool,
+) -> Result<DeleteResponse, String> {
+    let client = make_client(context).await?;
+
+    let mut delete_params = DeleteParams::default();
+    if let Some(gp) = grace_period_seconds {
+        delete_params.grace_period_seconds = Some(gp as u32);
+    }
+    if force {
+        delete_params.grace_period_seconds = Some(0);
+        delete_params.propagation_policy =
+            Some(kube::api::PropagationPolicy::Background);
+    }
+
+    match kind.as_str() {
+        "pods" => {
+            let api: Api<Pod> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete pod: {e}"))?;
+        }
+        "deployments" => {
+            let api: Api<Deployment> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete deployment: {e}"))?;
+        }
+        "statefulsets" => {
+            let api: Api<StatefulSet> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete statefulset: {e}"))?;
+        }
+        "services" => {
+            let api: Api<Service> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete service: {e}"))?;
+        }
+        "ingresses" => {
+            let api: Api<Ingress> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete ingress: {e}"))?;
+        }
+        "configmaps" => {
+            let api: Api<ConfigMap> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete configmap: {e}"))?;
+        }
+        "secrets" => {
+            let api: Api<Secret> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete secret: {e}"))?;
+        }
+        "pvcs" => {
+            let api: Api<PersistentVolumeClaim> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete pvc: {e}"))?;
+        }
+        "nodes" => {
+            let api: Api<Node> = Api::all(client);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete node: {e}"))?;
+        }
+        _ => return Err(format!("Unsupported resource kind: {kind}")),
+    }
+
+    Ok(DeleteResponse {
+        success: true,
+        message: format!("{kind}/{name} deleted"),
+    })
 }
 
 pub async fn cluster_health(context: Option<String>) -> Result<bool, String> {

@@ -56,3 +56,18 @@ export function onResourceUpdate(callback) {
     callback(event.payload);
   });
 }
+
+export function applyYaml(context, yamlContent) {
+  return invoke("apply_yaml", { context: context ?? null, yamlContent });
+}
+
+export async function deleteResource(clusterId, kind, name, namespace, gracePeriodSeconds = null, force = false) {
+  return invoke("delete_resource", {
+    context: clusterId ?? null,
+    kind,
+    name,
+    namespace,
+    grace_period_seconds: gracePeriodSeconds,
+    force,
+  });
+}
