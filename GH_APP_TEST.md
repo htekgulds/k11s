@@ -1,1 +1,1 @@
-# Test file from gh-app
+Updated via git-app (app token)
