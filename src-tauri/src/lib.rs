@@ -90,12 +90,34 @@ async fn apply_yaml(
 }
 
 #[tauri::command]
+async fn delete_resource(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: String,
+    grace_period_seconds: Option<i64>,
+    force: bool,
+) -> Result<k8s::DeleteResponse, String> {
+    k8s::delete_resource(context, kind, name, namespace, grace_period_seconds, force).await
+}
+
+#[tauri::command]
 async fn get_events(
     context: Option<String>,
     name: String,
     namespace: Option<String>,
 ) -> Result<k8s::EventsResponse, String> {
     k8s::get_events(context, name, namespace).await
+}
+
+#[tauri::command]
+async fn describe_resource(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: Option<String>,
+) -> Result<k8s::DescribeResponse, String> {
+    k8s::describe_resource(context, kind, name, namespace).await
 }
 
 #[tauri::command]
@@ -134,6 +156,17 @@ async fn stop_watchers(
     Ok(())
 }
 
+#[tauri::command]
+async fn rollout_action(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: String,
+    action: String,
+) -> Result<k8s::RolloutResponse, String> {
+    k8s::rollout_action(context, kind, name, namespace, action).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -155,11 +188,14 @@ pub fn run() {
             get_pod_logs,
             get_yaml,
             apply_yaml,
+            delete_resource,
             get_events,
+            describe_resource,
             start_watchers,
             stop_watchers,
             add_kubeconfig_files,
             add_kubeconfig_folder,
+            rollout_action,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

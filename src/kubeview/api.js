@@ -42,6 +42,10 @@ export async function stopWatchers(clusterId) {
   return invoke("stop_watchers", { context: ctx });
 }
 
+export async function rolloutAction(clusterId, kind, name, namespace, action) {
+  return invoke("rollout_action", { context: clusterId ?? null, kind, name, namespace, action });
+}
+
 /**
  * Listen for resource-update events.
  * Returns an unlisten function to be called on cleanup.
@@ -55,4 +59,15 @@ export function onResourceUpdate(callback) {
 
 export function applyYaml(context, yamlContent) {
   return invoke("apply_yaml", { context: context ?? null, yamlContent });
+}
+
+export async function deleteResource(clusterId, kind, name, namespace, gracePeriodSeconds = null, force = false) {
+  return invoke("delete_resource", {
+    context: clusterId ?? null,
+    kind,
+    name,
+    namespace,
+    grace_period_seconds: gracePeriodSeconds,
+    force,
+  });
 }
