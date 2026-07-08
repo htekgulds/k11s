@@ -448,6 +448,7 @@ export default function KubeClient() {
           }
           namespaces={ns}
           onRefresh={() => fetchResource(rt, cid)}
+          clusterId={cid}
         />
       );
     }
@@ -470,6 +471,7 @@ export default function KubeClient() {
           setNamespace={(v) => setTF(activeClusterId, { namespace: v })}
           namespaces={ns}
           onRefresh={() => fetchResource(rt)}
+          clusterId={activeClusterId}
         />
       );
     }
