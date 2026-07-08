@@ -136,6 +136,17 @@ async fn stop_watchers(
     Ok(())
 }
 
+#[tauri::command]
+async fn rollout_action(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: String,
+    action: String,
+) -> Result<k8s::RolloutResponse, String> {
+    k8s::rollout_action(context, kind, name, namespace, action).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -162,6 +173,7 @@ pub fn run() {
             stop_watchers,
             add_kubeconfig_files,
             add_kubeconfig_folder,
+            rollout_action,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

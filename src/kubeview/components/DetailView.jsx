@@ -26,7 +26,7 @@ export function DetailView({ obj, type, allData, clusterId, onNavigate }) {
           flexShrink: 0,
         }}
       >
-        <DetailHeader obj={obj} type={type} onGoTab={goTab} />
+        <DetailHeader obj={obj} type={type} clusterId={clusterId} onGoTab={goTab} />
         <DetailTabs type={type} subTab={subTab} onGoTab={goTab} />
       </div>
       <div style={{ flex: 1, overflow: "hidden", display: "flex", minHeight: 0 }}>
