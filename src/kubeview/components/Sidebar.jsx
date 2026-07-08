@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import { RESOURCE_TYPES } from "../constants";
 import { mono } from "../theme";
+import { PortForwardPanel } from "./PortForwardPanel";
 
 export function Sidebar({ clusterState, activeCluster, data, loading, onOpenResource, onAddCluster }) {
   const clustersColor = activeCluster?.color || "#39ff8a";
@@ -80,6 +81,8 @@ export function Sidebar({ clusterState, activeCluster, data, loading, onOpenReso
           );
         })}
       </div>
+
+      <PortForwardPanel clusterId={activeCluster?.id} />
 
       <button
         type="button"

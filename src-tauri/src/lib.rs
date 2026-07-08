@@ -2,6 +2,22 @@ mod clusters;
 mod k8s;
 mod watchers;
 
+use std::collections::HashMap;
+use std::sync::Mutex;
+use tokio_util::sync::CancellationToken;
+
+struct PortForwardManager {
+    forwards: Mutex<HashMap<String, (k8s::PortForwardInfo, CancellationToken)>>,
+}
+
+impl PortForwardManager {
+    fn new() -> Self {
+        Self {
+            forwards: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
 
 
 #[tauri::command]
@@ -126,12 +142,61 @@ async fn stop_watchers(
     Ok(())
 }
 
+#[tauri::command]
+async fn start_port_forward(
+    context: Option<String>,
+    namespace: String,
+    pod_name: String,
+    remote_port: u16,
+    state: tauri::State<'_, PortForwardManager>,
+) -> Result<k8s::PortForwardInfo, String> {
+    let id = format!("{namespace}/{pod_name}:{remote_port}");
+
+    // Check if already forwarded
+    if state.forwards.lock().unwrap().contains_key(&id) {
+        return Err(format!("Port forward already active: {id}"));
+    }
+
+    let cancel = CancellationToken::new();
+    let info = k8s::start_port_forward(context, namespace, pod_name, remote_port, cancel.clone()).await?;
+
+    state
+        .forwards
+        .lock()
+        .unwrap()
+        .insert(id, (info.clone(), cancel));
+
+    Ok(info)
+}
+
+#[tauri::command]
+async fn stop_port_forward(
+    id: String,
+    state: tauri::State<'_, PortForwardManager>,
+) -> Result<(), String> {
+    if let Some((_, cancel)) = state.forwards.lock().unwrap().remove(&id) {
+        cancel.cancel();
+        Ok(())
+    } else {
+        Err(format!("No active port forward: {id}"))
+    }
+}
+
+#[tauri::command]
+async fn list_port_forwards(
+    state: tauri::State<'_, PortForwardManager>,
+) -> Result<Vec<k8s::PortForwardInfo>, String> {
+    let forwards = state.forwards.lock().unwrap();
+    Ok(forwards.values().map(|(info, _)| info.clone()).collect())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(watchers::WatcherManager::new())
+        .manage(PortForwardManager::new())
         .invoke_handler(tauri::generate_handler![
             list_clusters,
             cluster_health,
@@ -151,6 +216,9 @@ pub fn run() {
             stop_watchers,
             add_kubeconfig_files,
             add_kubeconfig_folder,
+            start_port_forward,
+            stop_port_forward,
+            list_port_forwards,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
