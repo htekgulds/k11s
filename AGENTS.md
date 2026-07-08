@@ -139,6 +139,10 @@ Conventions:
 - All Tauri commands return `Result<T, String>` — errors propagate to frontend as rejections
 - Use `#[tauri::command]` in `lib.rs`, register in the builder
 
+## Backlog
+
+The project backlog is at `BACKLOG.md` in the repo root — categorized into Features (F1-F10), UX improvements (UX1-UX7), Bugs (B1-B5), Security (S1-S2), and Architecture (A1-A3). Feature work should reference backlog IDs.
+
 ## Auth (for agent use)
 
 GitHub operations use the **hermes-do1** GitHub App token:
