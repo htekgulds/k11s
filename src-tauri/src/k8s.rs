@@ -103,7 +103,7 @@ fn first_container_image(pod: &Pod) -> String {
         .unwrap_or_default()
 }
 
-async fn pods_per_node(client: &Client) -> HashMap<String, usize> {
+pub(crate) async fn pods_per_node(client: &Client) -> HashMap<String, usize> {
     let pods = Api::<Pod>::all(client.clone())
         .list(&ListParams::default())
         .await
