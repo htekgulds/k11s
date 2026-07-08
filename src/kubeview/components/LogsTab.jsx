@@ -6,6 +6,7 @@ import { Spinner } from "./ui/Spinner";
 export function LogsTab({ obj, clusterId }) {
   const [logs, setLogs] = useState(null);
   const [fetching, setFetching] = useState(false);
+  const [previous, setPrevious] = useState(false);
 
   const load = useCallback(
     async (force) => {
@@ -14,7 +15,7 @@ export function LogsTab({ obj, clusterId }) {
       try {
         const res = await k8sInvoke(
           "get_pod_logs",
-          { name: obj.name, namespace: obj.namespace },
+          { name: obj.name, namespace: obj.namespace, previous },
           clusterId,
         );
         setLogs(res);
@@ -24,7 +25,7 @@ export function LogsTab({ obj, clusterId }) {
         setFetching(false);
       }
     },
-    [obj.name, obj.namespace, clusterId, logs],
+    [obj.name, obj.namespace, clusterId, logs, previous],
   );
 
   useEffect(() => { load(); }, [load]);
@@ -52,7 +53,26 @@ export function LogsTab({ obj, clusterId }) {
           }}
         >
           stdout · stderr
+          {previous && <span style={{ color: "#f9a8d4", marginLeft: 6 }}>· previous</span>}
         </span>
+        <button
+          type="button"
+          onClick={() => setPrevious((p) => !p)}
+          style={{
+            marginLeft: previous ? undefined : "auto",
+            background: previous ? "#f9a8d420" : "none",
+            border: `1px solid ${previous ? "#f9a8d4" : "#0e1f2e"}`,
+            borderRadius: 3,
+            color: previous ? "#f9a8d4" : "#667",
+            cursor: "pointer",
+            padding: "2px 7px",
+            ...mono,
+            fontSize: "0.67rem",
+          }}
+          title="Show logs from previous container instance (--previous)"
+        >
+          prev
+        </button>
         <button
           type="button"
           onClick={() => load(true)}
