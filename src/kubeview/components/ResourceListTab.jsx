@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { Trash2 } from "lucide-react";
 import { COLUMNS } from "../constants";
 import { mono } from "../theme";
 import { nsColor } from "../utils/colors";
@@ -7,6 +8,7 @@ import { Pill } from "./ui/Pill";
 import { Spinner } from "./ui/Spinner";
 import { StatusDot } from "./ui/StatusDot";
 import { Dropdown } from "./ui/Dropdown";
+import { deleteResource } from "../api";
 
 export function ResourceListTab({
   type,
@@ -20,6 +22,7 @@ export function ResourceListTab({
   setNamespace,
   namespaces,
   onRefresh,
+  clusterId,
 }) {
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState(1);
@@ -48,6 +51,7 @@ export function ResourceListTab({
 
   // Right-click context menu
   const [ctxMenu, setCtxMenu] = useState(null);
+  const [delConfirm, setDelConfirm] = useState(null);
   useEffect(() => {
     if (!ctxMenu) return;
     const close = () => setCtxMenu(null);
@@ -56,6 +60,21 @@ export function ResourceListTab({
   }, [ctxMenu]);
   const ctxAction = (fn) => { fn(); setCtxMenu(null); };
   const kind = type.replace(/s$/, "");
+  const handleCtxDelete = async () => {
+    const row = ctxMenu?.row;
+    if (!row || !clusterId) return;
+    setCtxMenu(null);
+    setDelConfirm(row);
+  };
+  const confirmDelete = async (row) => {
+    setDelConfirm(null);
+    try {
+      await deleteResource(clusterId, type, row.name, row.namespace || "", null, false);
+      onRefresh();
+    } catch (e) {
+      console.error("Delete failed:", e);
+    }
+  };
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -259,13 +278,14 @@ export function ResourceListTab({
             { label: "Copy Name", fn: () => navigator.clipboard.writeText(ctxMenu.row.name) },
             { label: "Copy Namespace", fn: () => navigator.clipboard.writeText(ctxMenu.row.namespace) },
             { label: `Copy ${kind}/name`, fn: () => navigator.clipboard.writeText(`${kind}/${ctxMenu.row.name}`) },
-          ].map(({ label, fn }) => (
+            { label: "Delete", color: "#ff4d4d", fn: handleCtxDelete },
+          ].map(({ label, fn, color }) => (
             <div
               key={label}
               onClick={() => ctxAction(fn)}
               style={{
                 padding: "6px 16px",
-                color: "#bcc",
+                color: color || "#bcc",
                 cursor: "pointer",
                 transition: "background 0.07s",
               }}
@@ -275,6 +295,61 @@ export function ResourceListTab({
               {label}
             </div>
           ))}
+        </div>
+      )}
+      {delConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.6)",
+          }}
+          onClick={() => setDelConfirm(null)}
+        >
+          <div
+            style={{
+              background: "#0a1420",
+              border: "1px solid #ff4d4d40",
+              borderRadius: 8,
+              padding: 20,
+              minWidth: 300,
+              maxWidth: 400,
+              ...mono,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <Trash2 size={16} color="#ff4d4d" />
+              <span style={{ color: "#ff4d4d", fontWeight: 700, fontSize: "0.8rem" }}>
+                Delete {kind}/{delConfirm.name}?
+              </span>
+            </div>
+            {delConfirm.namespace && (
+              <div style={{ fontSize: "0.67rem", color: "#667", marginBottom: 14 }}>
+                Namespace: {delConfirm.namespace}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => setDelConfirm(null)}
+                style={{ background: "transparent", border: "1px solid #667", borderRadius: 4, color: "#667", padding: "4px 12px", ...mono, fontSize: "0.67rem", cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmDelete(delConfirm)}
+                style={{ background: "#ff4d4d20", border: "1px solid #ff4d4d", borderRadius: 4, color: "#ff4d4d", padding: "4px 12px", ...mono, fontSize: "0.67rem", cursor: "pointer" }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
