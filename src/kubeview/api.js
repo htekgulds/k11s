@@ -117,3 +117,11 @@ export async function deleteResource(clusterId, kind, name, namespace, gracePeri
     force,
   });
 }
+
+export async function discoverResources(clusterId) {
+  return invoke("discover_resources", { context: clusterId ?? null });
+}
+
+export async function listResource(clusterId, group, version, kind, plural, namespaced) {
+  return invoke("list_resource", { context: clusterId ?? null, group, version, kind, plural, namespaced });
+}

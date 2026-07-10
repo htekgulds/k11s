@@ -1,8 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Plus } from "lucide-react";
-import { addKubeconfig, addKubeconfigByPath, clusterHealth, getDefaultContext, getKubeconfigPaths, k8sInvoke, listClusters, onResourceUpdate, removeKubeconfigPath, startWatchers, stopWatchers } from "./api";
-import { defaultNavState, RESOURCE_TYPES } from "./constants";
+import {
+  addKubeconfig,
+  addKubeconfigByPath,
+  clusterHealth,
+  getDefaultContext,
+  getKubeconfigPaths,
+  k8sInvoke,
+  listClusters,
+  onResourceUpdate,
+  startWatchers,
+  stopWatchers,
+  discoverResources,
+  listResource,
+} from "./api";
+import { defaultNavState, COMMON_RESOURCES } from "./constants";
 
 import { CommandPalette } from "./components/CommandPalette";
 import { DetailView } from "./components/DetailView";
@@ -69,11 +82,22 @@ export default function KubeClient() {
   const [clock, setClock] = useState(() => new Date());
   const [kubeconfigPaths, setKubeconfigPaths] = useState([]);
   const { toasts, addToast, removeToast } = useToasts();
+  const [discoveredResources, setDiscoveredResources] = useState([]);
   const cmdRef = useRef(null);
   const unlistenRef = useRef(null);
   const activeIdRef = useRef(activeClusterId);
+  const discCacheRef = useRef({});
 
   activeIdRef.current = activeClusterId;
+
+  // Build a map: plural → {group, version, kind, namespaced} from discovered resources
+  const resourceLookup = useMemo(() => {
+    const map = {};
+    for (const r of discoveredResources) {
+      map[r.plural] = r;
+    }
+    return map;
+  }, [discoveredResources]);
 
   const data = clusterData[activeClusterId] || {};
   const loading = clusterLoading[activeClusterId] || {};
@@ -92,14 +116,30 @@ export default function KubeClient() {
   const fetchResource = useCallback(async (type, cid) => {
     const clusterId = cid || activeClusterId;
     if (!clusterId) return;
-    const rt = RESOURCE_TYPES.find((r) => r.key === type);
-    if (!rt) return;
+
+    const common = COMMON_RESOURCES.find((r) => r.key === type);
+    const disc = resourceLookup[type];
+
+    if (!common && !disc) return; // unknown type
+
     setClusterLoading((prev) => ({
       ...prev,
       [clusterId]: { ...(prev[clusterId] || {}), [type]: true },
     }));
     try {
-      const res = await k8sInvoke(rt.cmd, {}, clusterId);
+      let res;
+      if (common) {
+        res = await k8sInvoke(common.cmd, {}, clusterId);
+      } else if (disc) {
+        res = await listResource(
+          clusterId,
+          disc.group,
+          disc.version,
+          disc.kind,
+          disc.plural,
+          disc.namespaced,
+        );
+      }
       setClusterData((prev) => ({
         ...prev,
         [clusterId]: { ...(prev[clusterId] || {}), [type]: Array.isArray(res) ? res : [] },
@@ -116,7 +156,7 @@ export default function KubeClient() {
         [clusterId]: { ...(prev[clusterId] || {}), [type]: false },
       }));
     }
-  }, [activeClusterId]);
+  }, [activeClusterId, resourceLookup]);
 
   // Event listener for real-time resource updates
   useEffect(() => {
@@ -150,14 +190,13 @@ export default function KubeClient() {
         unlisten();
         unlistenRef.current = null;
       } else {
-        // If listen() hasn't resolved yet, clean up via ref
         const fn = unlistenRef.current;
         if (fn) { fn(); unlistenRef.current = null; }
       }
     };
   }, []);
 
-  // Start/stop watchers when active cluster or connection status changes
+  // Start/stop watchers + discover resources when active cluster or connection status changes
   useEffect(() => {
     if (!activeClusterId) return;
 
@@ -167,7 +206,7 @@ export default function KubeClient() {
     }
 
     const loadingState = {};
-    RESOURCE_TYPES.forEach((rt) => { loadingState[rt.key] = true; });
+    COMMON_RESOURCES.forEach((rt) => { loadingState[rt.key] = true; });
     setClusterLoading((prev) => ({ ...prev, [activeClusterId]: loadingState }));
     setClusterData((prev) => {
       if (prev[activeClusterId]) return prev;
@@ -175,17 +214,32 @@ export default function KubeClient() {
     });
 
     if (connected) {
+      // Discover all API resources (common + other)
+      if (!discCacheRef.current[activeClusterId]) {
+        discoverResources(activeClusterId)
+          .then((list) => {
+            setDiscoveredResources(list);
+            discCacheRef.current[activeClusterId] = list;
+          })
+          .catch((err) => {
+            console.error("Resource discovery failed:", err);
+            setDiscoveredResources([]);
+          });
+      } else {
+        setDiscoveredResources(discCacheRef.current[activeClusterId]);
+      }
+
       startWatchers(activeClusterId).catch((err) => {
         console.error("Failed to start watchers:", err);
         setClusterLoading((prev) => ({
           ...prev,
-          [activeClusterId]: Object.fromEntries(RESOURCE_TYPES.map((rt) => [rt.key, false])),
+          [activeClusterId]: Object.fromEntries(COMMON_RESOURCES.map((rt) => [rt.key, false])),
         }));
       });
     } else {
       setClusterLoading((prev) => ({
         ...prev,
-        [activeClusterId]: Object.fromEntries(RESOURCE_TYPES.map((rt) => [rt.key, false])),
+        [activeClusterId]: Object.fromEntries(COMMON_RESOURCES.map((rt) => [rt.key, false])),
       }));
     }
 
@@ -200,7 +254,6 @@ export default function KubeClient() {
         const colored = assignClusterColors(list);
         setClusters(colored);
         setClustersError(null);
-        // Auto-select default context if set via --context CLI flag
         getDefaultContext().then((ctx) => {
           if (ctx && colored.find((c) => c.id === ctx)) {
             setActiveClusterId(ctx);
@@ -387,10 +440,10 @@ export default function KubeClient() {
     ...clusters
       .filter((c) => c.id !== activeClusterId)
       .map((c) => ({ label: `Switch to ${c.label}`, fn: () => switchCluster(c.id) })),
-    ...RESOURCE_TYPES.map((r) => ({ label: `Open ${r.label}`, fn: () => openResourceView(r.key) })),
+    ...COMMON_RESOURCES.map((r) => ({ label: `Open ${r.label}`, fn: () => openResourceView(r.key) })),
     {
       label: "Refresh all",
-      fn: () => RESOURCE_TYPES.forEach((rt) => fetchResource(rt.key)),
+      fn: () => COMMON_RESOURCES.forEach((rt) => fetchResource(rt.key)),
     },
     {
       label: "Close all tabs",
@@ -410,7 +463,7 @@ export default function KubeClient() {
           const clusterLabel = clusters.find((c) => c.id === cid)?.label || cid;
           for (const [rtKey, items] of Object.entries(cdata)) {
             if (!Array.isArray(items)) continue;
-            const rt = RESOURCE_TYPES.find((r) => r.key === rtKey);
+            const rt = COMMON_RESOURCES.find((r) => r.key === rtKey);
             const rtLabel = rt?.label || rtKey;
             for (const obj of items) {
               const searchStr = `${obj.name} ${obj.namespace || ""} ${rtLabel}`.toLowerCase();
@@ -452,9 +505,9 @@ export default function KubeClient() {
   useHotkeys("escape", () => setCmdOpen(false), { enableOnFormTags: true });
   useHotkeys("mod+k, :", () => setCmdOpen(true), { preventDefault: true, useKey: true });
   useHotkeys(
-    RESOURCE_TYPES.map((r) => r.shortcut.toLowerCase()).join(", "),
+    COMMON_RESOURCES.map((r) => r.shortcut.toLowerCase()).join(", "),
     (e) => {
-      const rt = RESOURCE_TYPES.find((r) => r.shortcut === e.key.toUpperCase());
+      const rt = COMMON_RESOURCES.find((r) => r.shortcut === e.key.toUpperCase());
       if (rt) openResourceView(rt.key);
     },
     { preventDefault: true },
@@ -638,6 +691,7 @@ export default function KubeClient() {
           onOpenResource={openResourceView}
           onAddCluster={handleAddCluster}
           onAddKubeconfigByPath={handleAddKubeconfigByPath}
+          discoveredResources={discoveredResources}
         />
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>

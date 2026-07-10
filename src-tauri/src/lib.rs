@@ -330,6 +330,25 @@ async fn rollout_action(
     k8s::rollout_action(context, kind, name, namespace, action).await
 }
 
+#[tauri::command]
+async fn discover_resources(
+    context: Option<String>,
+) -> Result<Vec<k8s::DiscoveredResource>, String> {
+    k8s::discover_resources(context).await
+}
+
+#[tauri::command]
+async fn list_resource(
+    context: Option<String>,
+    group: String,
+    version: String,
+    kind: String,
+    plural: String,
+    namespaced: bool,
+) -> Result<Vec<serde_json::Value>, String> {
+    k8s::list_resource(context, group, version, kind, plural, namespaced).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Apply CLI args before Tauri initializes (e.g. --kubeconfig <path>)
@@ -374,6 +393,8 @@ pub fn run() {
             start_log_stream,
             stop_log_stream,
             rollout_action,
+            discover_resources,
+            list_resource,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

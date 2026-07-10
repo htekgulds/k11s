@@ -1,4 +1,4 @@
-import { RESOURCE_TYPES } from "../constants";
+import { COMMON_RESOURCES, getResourceIcon } from "../constants";
 import { kindColorMap, mono } from "../theme";
 import { GraphView } from "./GraphView";
 
@@ -54,12 +54,17 @@ export function GraphTab({ graph, allData, onNavigate }) {
         <GraphView
           graph={graph}
           onNavigate={(nd) => {
-            const rt = RESOURCE_TYPES.find(
+            const rt = COMMON_RESOURCES.find(
               (r) => r.label.replace(/s$/, "") === nd.kind || `${r.key.slice(0, -1)}` === nd.kind.toLowerCase(),
             );
             if (rt) {
               const found = (allData[rt.key] || []).find((o) => o.name === nd.id);
               if (found) onNavigate(rt.key, found);
+            } else {
+              // Try nd.kind as a direct key (for dynamic resource graph nodes)
+              const directKey = nd.kind?.toLowerCase().endsWith("s") ? nd.kind.toLowerCase() : `${nd.kind?.toLowerCase()}s`;
+              const found = (allData[directKey] || []).find((o) => o.name === nd.id);
+              if (found) onNavigate(directKey, found);
             }
           }}
         />

@@ -1,5 +1,5 @@
 import { Hexagon, AlertTriangle, Plus, FileInput } from "lucide-react";
-import { RESOURCE_TYPES } from "../constants";
+import { COMMON_RESOURCES, getResourceIcon } from "../constants";
 import { ENV_STYLE, PROVIDER_ICON, mono } from "../theme";
 import { useState } from "react";
 
@@ -280,7 +280,7 @@ export function ClustersTab({
                 </div>
               )}
               <div style={{ padding: "8px 14px", display: "flex", gap: 5, flexWrap: "wrap" }}>
-                {RESOURCE_TYPES.slice(0, 6).map((rt) => {
+                {COMMON_RESOURCES.slice(0, 6).map((rt) => {
                   const items = clusterData[rt.key] || [];
                   const count = items.length;
                   const hasErr = items.some((r) =>

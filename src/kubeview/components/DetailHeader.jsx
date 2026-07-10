@@ -1,5 +1,5 @@
 import { ScrollText, Terminal, ArrowUpDown, RefreshCw, Edit, Trash2, AlertTriangle, Copy, ClipboardCopy, ArrowRightLeft, Undo2, History } from "lucide-react";
-import { RESOURCE_TYPES } from "../constants";
+import { COMMON_RESOURCES } from "../constants";
 import { STATUS_COLOR, mono } from "../theme";
 import { nsColor } from "../utils/colors";
 import { Pill } from "./ui/Pill";
@@ -37,7 +37,7 @@ export function DetailHeader({ obj, type, onGoTab, clusterId }) {
   const [feedback, setFeedback] = useState(null);
   const isErr = ["CrashLoopBackOff", "Error", "OOMKilled", "NotReady"].includes(obj.status);
   const statCol = STATUS_COLOR[obj.status] || "#556";
-  const kindLbl = RESOURCE_TYPES.find((r) => r.key === type)?.label.replace(/s$/, "") || type;
+  const kindLbl = COMMON_RESOURCES.find((r) => r.key === type)?.label.replace(/s$/, "") || type;
   const kind = type === "statefulsets" ? "statefulset" : type === "deployments" ? "deployment" : type;
 
   const runRollout = async (action) => {

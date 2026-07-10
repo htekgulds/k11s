@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Trash2 } from "lucide-react";
-import { COLUMNS } from "../constants";
+import { getColumns } from "../constants";
 import { mono } from "../theme";
 import { nsColor } from "../utils/colors";
 import { Pill } from "./ui/Pill";
