@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
-import { COMMON_RESOURCES } from "../constants";
-import { mono } from "../theme";
+import { COMMON_RESOURCES } from "../../constants";
+import { mono } from "../../theme";
 
 const shortcuts = [
   { key: "?", desc: "Toggle this shortcuts panel" },

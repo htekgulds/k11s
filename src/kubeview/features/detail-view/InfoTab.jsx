@@ -1,10 +1,10 @@
-import { mono } from "../theme";
-import { nsColor } from "../utils/colors";
-import { FieldRow } from "./ui/FieldRow";
-import { Pill } from "./ui/Pill";
-import { StatusDot } from "./ui/StatusDot";
-import { kindColor } from "../utils/colors";
-import { STATUS_COLOR } from "../theme";
+import { mono } from "../../theme";
+import { nsColor } from "../../utils/colors";
+import { FieldRow } from "../../components/ui/FieldRow";
+import { Pill } from "../../components/ui/Pill";
+import { StatusDot } from "../../components/ui/StatusDot";
+import { kindColor } from "../../utils/colors";
+import { STATUS_COLOR } from "../../theme";
 
 function detailFields(obj, type) {
   if (type === "pods") {

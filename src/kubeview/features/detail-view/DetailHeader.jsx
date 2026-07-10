@@ -1,9 +1,9 @@
 import { ScrollText, Terminal, ArrowUpDown, RefreshCw, Edit, Trash2, AlertTriangle, Copy, ClipboardCopy, ArrowRightLeft, Undo2, History } from "lucide-react";
-import { COMMON_RESOURCES } from "../constants";
-import { STATUS_COLOR, mono } from "../theme";
-import { nsColor } from "../utils/colors";
-import { Pill } from "./ui/Pill";
-import { k8sInvoke, rolloutAction } from "../api";
+import { COMMON_RESOURCES } from "../../constants";
+import { STATUS_COLOR, mono } from "../../theme";
+import { nsColor } from "../../utils/colors";
+import { Pill } from "../../components/ui/Pill";
+import { k8sInvoke, rolloutAction } from "../../api";
 import { useState } from "react";
 
 const copyBtn = (txt, label) => (

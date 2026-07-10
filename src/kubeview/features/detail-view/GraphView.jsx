@@ -1,5 +1,5 @@
-import { mono } from "../theme";
-import { kindColor, nsColor } from "../utils/colors";
+import { mono } from "../../theme";
+import { kindColor, nsColor } from "../../utils/colors";
 
 export function GraphView({ graph, onNavigate }) {
   const { nodes, edges } = graph;

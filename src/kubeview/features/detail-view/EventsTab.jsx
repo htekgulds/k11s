@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { k8sInvoke } from "../api";
-import { mono } from "../theme";
-import { Spinner } from "./ui/Spinner";
+import { k8sInvoke } from "../../api";
+import { mono } from "../../theme";
+import { Spinner } from "../../components/ui/Spinner";
 
 export function EventsTab({ obj, clusterId }) {
   const [events, setEvents] = useState(null);

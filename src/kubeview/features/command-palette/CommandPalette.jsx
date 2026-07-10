@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Command } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { mono } from "../theme";
+import { mono } from "../../theme";
 
 export function CommandPalette({ open, query, setQuery, items, onClose, inputRef }) {
   const [selectedIndex, setSelectedIndex] = useState(0);

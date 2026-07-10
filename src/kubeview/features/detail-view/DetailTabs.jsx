@@ -1,5 +1,5 @@
-import { DETAIL_TABS_MAP } from "../constants";
-import { mono } from "../theme";
+import { DETAIL_TABS_MAP } from "../../constants";
+import { mono } from "../../theme";
 
 export function DetailTabs({ type, subTab, onGoTab }) {
   const dtabs = DETAIL_TABS_MAP[type] || DETAIL_TABS_MAP.default;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { k8sInvoke } from "../api";
-import { mono } from "../theme";
-import { Spinner } from "./ui/Spinner";
+import { k8sInvoke } from "../../api";
+import { mono } from "../../theme";
+import { Spinner } from "../../components/ui/Spinner";
 import { listen } from "@tauri-apps/api/event";
 
 export function LogsTab({ obj, clusterId }) {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { k8sInvoke } from "../api";
-import { mono } from "../theme";
+import { k8sInvoke } from "../../api";
+import { mono } from "../../theme";
 
 export function PortForwardPanel({ clusterId }) {
   const [forwards, setForwards] = useState([]);

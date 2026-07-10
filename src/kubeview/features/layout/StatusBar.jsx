@@ -1,5 +1,5 @@
 import { Circle, Command, FileText } from "lucide-react";
-import { mono } from "../theme";
+import { mono } from "../../theme";
 
 export function StatusBar({ activeCluster, connected, version, kubeconfigPaths, onAddCluster }) {
   return (

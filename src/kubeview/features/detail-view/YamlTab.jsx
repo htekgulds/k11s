@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { applyYaml, k8sInvoke } from "../api";
-import { mono } from "../theme";
-import { Spinner } from "./ui/Spinner";
+import { applyYaml, k8sInvoke } from "../../api";
+import { mono } from "../../theme";
+import { Spinner } from "../../components/ui/Spinner";
 
 export function YamlTab({ obj, type, clusterId }) {
   const [yaml, setYaml] = useState(null);

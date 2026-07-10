@@ -1,5 +1,5 @@
-import { COMMON_RESOURCES, getResourceIcon } from "../constants";
-import { kindColorMap, mono } from "../theme";
+import { COMMON_RESOURCES, getResourceIcon } from "../../constants";
+import { kindColorMap, mono } from "../../theme";
 import { GraphView } from "./GraphView";
 
 export function GraphTab({ graph, allData, onNavigate }) {

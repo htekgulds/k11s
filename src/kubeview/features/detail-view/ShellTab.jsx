@@ -4,8 +4,8 @@ import {
   execPodStdin,
   execPodStop,
   onShellOutput,
-} from "../api";
-import { mono } from "../theme";
+} from "../../api";
+import { mono } from "../../theme";
 
 export function ShellTab({ obj, clusterId }) {
   const [sessionId, setSessionId] = useState(null);

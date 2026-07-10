@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { buildGraph, getRelated } from "../utils/graph";
+import { buildGraph, getRelated } from "../../utils/graph";
 import { InfoTab } from "./InfoTab";
 import { LogsTab } from "./LogsTab";
 import { ShellTab } from "./ShellTab";

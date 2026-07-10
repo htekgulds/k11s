@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { ENV_STYLE, mono } from "../theme";
+import { ENV_STYLE, mono } from "../../theme";
 
 export function ClusterDropdown({ clusters, activeCluster, onSwitch }) {
   const [open, setOpen] = useState(false);

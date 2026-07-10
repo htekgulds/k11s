@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { k8sInvoke } from "../api";
-import { mono } from "../theme";
-import { Spinner } from "./ui/Spinner";
+import { k8sInvoke } from "../../api";
+import { mono } from "../../theme";
+import { Spinner } from "../../components/ui/Spinner";
 
 export function DescribeTab({ obj, clusterId }) {
   const [describe, setDescribe] = useState(null);

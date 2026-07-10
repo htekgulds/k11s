@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Hexagon, X, Command } from "lucide-react";
-import { mono } from "../theme";
+import { mono } from "../../theme";
 import { ClusterDropdown } from "./ClusterDropdown";
 
 export function TopBar({

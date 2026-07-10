@@ -1,14 +1,14 @@
 import { useRef, useState, useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Trash2 } from "lucide-react";
-import { getColumns } from "../constants";
-import { mono } from "../theme";
-import { nsColor } from "../utils/colors";
-import { Pill } from "./ui/Pill";
-import { Spinner } from "./ui/Spinner";
-import { StatusDot } from "./ui/StatusDot";
-import { Dropdown } from "./ui/Dropdown";
-import { deleteResource } from "../api";
+import { getColumns } from "../../constants";
+import { mono } from "../../theme";
+import { nsColor } from "../../utils/colors";
+import { Pill } from "../../components/ui/Pill";
+import { Spinner } from "../../components/ui/Spinner";
+import { StatusDot } from "../../components/ui/StatusDot";
+import { Dropdown } from "../../components/ui/Dropdown";
+import { deleteResource } from "../../api";
 
 export function ResourceListTab({
   type,

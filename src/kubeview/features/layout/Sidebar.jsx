@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Plus, FileInput, ChevronDown, ChevronRight } from "lucide-react";
-import { COMMON_RESOURCES, getResourceIcon } from "../constants";
-import { mono } from "../theme";
-import { PortForwardPanel } from "./PortForwardPanel";
+import { COMMON_RESOURCES, getResourceIcon } from "../../constants";
+import { mono } from "../../theme";
+import { PortForwardPanel } from "../port-forward/PortForwardPanel";
 
 export function Sidebar({
   clusterState,
