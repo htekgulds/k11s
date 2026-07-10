@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { RESOURCE_TYPES } from "../constants";
+import { COMMON_RESOURCES } from "../constants";
 import { mono } from "../theme";
 
 const shortcuts = [
@@ -7,7 +7,7 @@ const shortcuts = [
   { key: "Cmd+K / :", desc: "Open command palette" },
   { key: "Esc", desc: "Close command palette / modals" },
   { key: "Cmd+W", desc: "Close active tab" },
-  ...RESOURCE_TYPES.map((r) => ({ key: r.shortcut, desc: `Open ${r.label} list` })),
+  ...COMMON_RESOURCES.map((r) => ({ key: r.shortcut, desc: `Open ${r.label} list` })),
 ];
 
 const rowStyle = {

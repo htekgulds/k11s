@@ -1,16 +1,54 @@
 import { Hexagon, Box, Layers, Database, Radio, ArrowRightLeft, FileText, Lock, HardDrive } from "lucide-react";
 
-export const RESOURCE_TYPES = [
-  { key: "nodes", label: "Nodes", icon: <Hexagon size={12} />, cmd: "list_nodes", shortcut: "N" },
-  { key: "pods", label: "Pods", icon: <Box size={12} />, cmd: "list_pods", shortcut: "P" },
-  { key: "deployments", label: "Deployments", icon: <Layers size={12} />, cmd: "list_deployments", shortcut: "D" },
-  { key: "statefulsets", label: "StatefulSets", icon: <Database size={12} />, cmd: "list_statefulsets", shortcut: "S" },
-  { key: "services", label: "Services", icon: <Radio size={12} />, cmd: "list_services", shortcut: "V" },
-  { key: "ingresses", label: "Ingresses", icon: <ArrowRightLeft size={12} />, cmd: "list_ingresses", shortcut: "I" },
-  { key: "configmaps", label: "ConfigMaps", icon: <FileText size={12} />, cmd: "list_configmaps", shortcut: "C" },
-  { key: "secrets", label: "Secrets", icon: <Lock size={12} />, cmd: "list_secrets", shortcut: "X" },
-  { key: "pvcs", label: "Volumes", icon: <HardDrive size={12} />, cmd: "list_persistentvolumeclaims", shortcut: "L" },
+// ── Common resources (dedicated sidebar items with icons + shortcuts) ──────
+
+export const COMMON_RESOURCES = [
+  { key: "nodes", label: "Nodes", icon: <Hexagon size={12} />, shortcut: "N", cmd: "list_nodes" },
+  { key: "pods", label: "Pods", icon: <Box size={12} />, shortcut: "P", cmd: "list_pods" },
+  { key: "deployments", label: "Deployments", icon: <Layers size={12} />, shortcut: "D", cmd: "list_deployments" },
+  { key: "statefulsets", label: "StatefulSets", icon: <Database size={12} />, shortcut: "S", cmd: "list_statefulsets" },
+  { key: "services", label: "Services", icon: <Radio size={12} />, shortcut: "V", cmd: "list_services" },
+  { key: "ingresses", label: "Ingresses", icon: <ArrowRightLeft size={12} />, shortcut: "I", cmd: "list_ingresses" },
+  { key: "configmaps", label: "ConfigMaps", icon: <FileText size={12} />, shortcut: "C", cmd: "list_configmaps" },
+  { key: "secrets", label: "Secrets", icon: <Lock size={12} />, shortcut: "X", cmd: "list_secrets" },
+  { key: "pvcs", label: "Volumes", icon: <HardDrive size={12} />, shortcut: "L", cmd: "list_persistentvolumeclaims" },
 ];
+
+// Get icon for any resource (common or other)
+export function getResourceIcon(plural) {
+  const found = COMMON_RESOURCES.find((r) => r.key === plural);
+  if (found) return found.icon;
+  return <Box size={12} />;
+}
+
+// Heuristic: split k8s plural name into readable label
+// e.g. "horizontalpodautoscalers" -> "HorizontalPodAutoscaler"
+// Falls back to kind name from API discovery if available.
+function pluralToLabel(plural, kind) {
+  if (kind && kind !== plural) return kind;
+  // Common irregular plurals
+  const map = {
+    endpoints: "Endpoints",
+    events: "Events",
+    namespaces: "Namespaces",
+    persistentvolumeclaims: "PersistentVolumeClaim",
+    persistentvolumes: "PersistentVolume",
+    pods: "Pod",
+    nodes: "Node",
+  };
+  if (map[plural]) return map[plural];
+  // Generic: title-case, strip trailing 's'
+  const singular = plural.endsWith("ies")
+    ? plural.slice(0, -3) + "y"
+    : plural.endsWith("es")
+      ? plural.slice(0, -2)
+      : plural.endsWith("s") && !plural.endsWith("ss")
+        ? plural.slice(0, -1)
+        : plural;
+  return singular.charAt(0).toUpperCase() + singular.slice(1);
+}
+
+// ── Column definitions for known resource types ───────────────────────────
 
 export const COLUMNS = {
   nodes: ["name", "status", "roles", "version", "cpu", "mem", "pods", "age"],
@@ -23,6 +61,11 @@ export const COLUMNS = {
   secrets: ["name", "namespace", "type", "data", "age"],
   pvcs: ["name", "namespace", "status", "capacity", "access_modes", "storageclass", "age"],
 };
+
+// Fallback columns for unknown resource types
+export const DEFAULT_COLUMNS = ["name", "namespace", "age"];
+
+// ── Detail tabs per resource type ─────────────────────────────────────────
 
 export const DETAIL_TABS_MAP = {
   pods: ["info", "logs", "shell", "yaml", "events", "describe", "graph"],
@@ -37,8 +80,16 @@ export const DETAIL_TABS_MAP = {
   default: ["info", "yaml", "graph"],
 };
 
+// ── Default nav state ─────────────────────────────────────────────────────
+
 export const defaultNavState = () => ({
   tabs: [],
   activeTab: null,
   activeResource: "nodes",
 });
+
+// ── Column helpers ────────────────────────────────────────────────────────
+
+export function getColumns(type) {
+  return COLUMNS[type] || DEFAULT_COLUMNS;
+}
