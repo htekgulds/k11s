@@ -44,7 +44,7 @@ export function LogsTab({ obj, clusterId }) {
         setFetching(false);
       }
     },
-    [obj.name, obj.namespace, clusterId, previous, container],
+    [obj.name, obj.namespace, clusterId, logs, previous, container],
   );
 
   const startTail = useCallback(async () => {

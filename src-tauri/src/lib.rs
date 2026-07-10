@@ -100,12 +100,42 @@ async fn get_yaml(
 }
 
 #[tauri::command]
+async fn apply_yaml(
+    context: Option<String>,
+    yaml_content: String,
+) -> Result<String, String> {
+    k8s::apply_yaml(context, yaml_content).await
+}
+
+#[tauri::command]
+async fn delete_resource(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: String,
+    grace_period_seconds: Option<i64>,
+    force: bool,
+) -> Result<k8s::DeleteResponse, String> {
+    k8s::delete_resource(context, kind, name, namespace, grace_period_seconds, force).await
+}
+
+#[tauri::command]
 async fn get_events(
     context: Option<String>,
     name: String,
     namespace: Option<String>,
 ) -> Result<k8s::EventsResponse, String> {
     k8s::get_events(context, name, namespace).await
+}
+
+#[tauri::command]
+async fn describe_resource(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: Option<String>,
+) -> Result<k8s::DescribeResponse, String> {
+    k8s::describe_resource(context, kind, name, namespace).await
 }
 
 #[tauri::command]
@@ -133,6 +163,21 @@ fn add_kubeconfig_files(file_paths: Vec<String>) -> Result<Vec<clusters::Cluster
 #[tauri::command]
 fn add_kubeconfig_folder(folder_path: String) -> Result<Vec<clusters::ClusterInfo>, String> {
     clusters::add_kubeconfig_folder(&folder_path)
+}
+
+#[tauri::command]
+fn get_kubeconfig_paths() -> Result<Vec<String>, String> {
+    clusters::list_kubeconfig_paths()
+}
+
+#[tauri::command]
+fn remove_kubeconfig_path(path: String) -> Result<Vec<clusters::ClusterInfo>, String> {
+    clusters::remove_kubeconfig_path(&path)
+}
+
+#[tauri::command]
+fn get_default_context() -> Option<String> {
+    clusters::get_default_context()
 }
 
 #[tauri::command]
@@ -185,8 +230,21 @@ async fn stop_log_stream(
     Ok(())
 }
 
+#[tauri::command]
+async fn rollout_action(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: String,
+    action: String,
+) -> Result<k8s::RolloutResponse, String> {
+    k8s::rollout_action(context, kind, name, namespace, action).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Apply CLI args before Tauri initializes (e.g. --kubeconfig <path>)
+    clusters::apply_cli_args();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -206,13 +264,20 @@ pub fn run() {
             list_persistentvolumeclaims,
             get_pod_logs,
             get_yaml,
+            apply_yaml,
+            delete_resource,
             get_events,
+            describe_resource,
             start_watchers,
             stop_watchers,
             add_kubeconfig_files,
             add_kubeconfig_folder,
             start_log_stream,
             stop_log_stream,
+            get_kubeconfig_paths,
+            remove_kubeconfig_path,
+            get_default_context,
+            rollout_action,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

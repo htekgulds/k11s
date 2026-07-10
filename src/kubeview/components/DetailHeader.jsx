@@ -1,8 +1,10 @@
-import { ScrollText, Terminal, ArrowUpDown, RefreshCw, Edit, Trash2, AlertTriangle, Copy, ClipboardCopy } from "lucide-react";
+import { ScrollText, Terminal, RefreshCw, Edit, Trash2, AlertTriangle, Copy, Undo2, History } from "lucide-react";
 import { RESOURCE_TYPES } from "../constants";
 import { STATUS_COLOR, mono } from "../theme";
 import { nsColor } from "../utils/colors";
 import { Pill } from "./ui/Pill";
+import { rolloutAction } from "../api";
+import { useState } from "react";
 
 const copyBtn = (txt, label) => (
   <button
@@ -28,10 +30,29 @@ const copyBtn = (txt, label) => (
   </button>
 );
 
-export function DetailHeader({ obj, type, onGoTab }) {
+export function DetailHeader({ obj, type, onGoTab, clusterId }) {
+  const [showShellPicker, setShowShellPicker] = useState(false);
+  const [feedback, setFeedback] = useState(null);
   const isErr = ["CrashLoopBackOff", "Error", "OOMKilled", "NotReady"].includes(obj.status);
   const statCol = STATUS_COLOR[obj.status] || "#556";
   const kindLbl = RESOURCE_TYPES.find((r) => r.key === type)?.label.replace(/s$/, "") || type;
+  const kind = type === "statefulsets" ? "statefulset" : type === "deployments" ? "deployment" : type;
+
+  const runRollout = async (action) => {
+    setFeedback({ action, status: "running" });
+    try {
+      const res = await rolloutAction(clusterId, kind, obj.name, obj.namespace, action);
+      setFeedback({ action, status: "ok", msg: res.message });
+    } catch (e) {
+      setFeedback({ action, status: "err", msg: String(e) });
+    }
+    setTimeout(() => setFeedback(null), 3000);
+  };
+
+  const isRolloutKind = type === "deployments" || type === "statefulsets";
+
+  const containers = obj?.containers || [];
+  const multiContainer = containers.length > 1;
 
   const actions = [
     ...(type === "pods"
@@ -41,14 +62,18 @@ export function DetailHeader({ obj, type, onGoTab }) {
             label: "Shell",
             icon: <Terminal size={14} />,
             color: "#c4b5fd",
-            fn: () => alert(`kubectl exec -it ${obj.name} -n ${obj.namespace} -- sh`),
+            fn: () =>
+              multiContainer
+                ? setShowShellPicker(true)
+                : alert(`kubectl exec -it ${obj.name} -n ${obj.namespace} -- sh`),
           },
         ]
       : []),
-    ...(type === "deployments" || type === "statefulsets"
+    ...(isRolloutKind
       ? [
-          { label: "Scale", icon: <ArrowUpDown size={14} />, color: "#f9a8d4", fn: () => alert("Scale") },
-          { label: "Redeploy", icon: <RefreshCw size={14} />, color: "#67e8f9", fn: () => alert("Restart") },
+          { label: "Restart", icon: <RefreshCw size={14} />, color: "#67e8f9", fn: () => runRollout("restart") },
+          { label: "Undo", icon: <Undo2 size={14} />, color: "#f9a8d4", fn: () => runRollout("undo") },
+          { label: "History", icon: <History size={14} />, color: "#c4b5fd", fn: () => runRollout("history") },
         ]
       : []),
     { label: "Edit YAML", icon: <Edit size={14} />, color: "#fb923c", fn: () => onGoTab("yaml") },
@@ -87,18 +112,20 @@ export function DetailHeader({ obj, type, onGoTab }) {
             key={a.label}
             type="button"
             onClick={a.fn}
+            disabled={feedback?.status === "running"}
             style={{
               background: "#0a1018",
               border: `1px solid ${a.color}28`,
               borderRadius: 4,
               color: a.color,
-              cursor: "pointer",
+              cursor: feedback?.status === "running" ? "wait" : "pointer",
               padding: "4px 9px",
               ...mono,
               fontSize: "0.67rem",
               display: "flex",
               alignItems: "center",
               gap: 4,
+              opacity: feedback?.status === "running" && feedback?.action === a.label.toLowerCase() ? 0.5 : 1,
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = `${a.color}10`;
@@ -111,7 +138,118 @@ export function DetailHeader({ obj, type, onGoTab }) {
             <span>{a.label}</span>
           </button>
         ))}
+        {feedback && (
+          <span style={{
+            ...mono, fontSize: "0.62rem", color: feedback.status === "err" ? "#ff4d4d" : "#39ff8a",
+            alignSelf: "center", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {feedback.status === "running" ? `${feedback.action}…` : feedback.status === "ok" ? "✓ done" : "✗ failed"}
+          </span>
+        )}
       </div>
+
+      {showShellPicker && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.6)",
+          }}
+          onClick={() => setShowShellPicker(false)}
+        >
+          <div
+            style={{
+              background: "#0a1018",
+              border: "1px solid #c4b5fd40",
+              borderRadius: 8,
+              padding: 20,
+              minWidth: 300,
+              ...mono,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <Terminal size={18} color="#c4b5fd" />
+              <span style={{ color: "#c4b5fd", fontWeight: 700, fontSize: "0.85rem" }}>
+                Open Shell
+              </span>
+            </div>
+
+            <div style={{ marginBottom: 14, fontSize: "0.72rem", lineHeight: "1.6" }}>
+              <span style={{ color: "#889" }}>Pod: </span>
+              <span style={{ color: "#bcc", fontWeight: 600 }}>{obj.name}</span>
+              {obj.namespace && (
+                <>
+                  <br />
+                  <span style={{ color: "#889" }}>Namespace: </span>
+                  <span style={{ color: nsColor(obj.namespace) }}>{obj.namespace}</span>
+                </>
+              )}
+            </div>
+
+            <div style={{ color: "#667", fontSize: "0.62rem", marginBottom: 12 }}>
+              Select container to open a shell:
+            </div>
+
+            {containers.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    `kubectl exec -it ${obj.name} -c ${c} -n ${obj.namespace} -- sh`,
+                  );
+                  setShowShellPicker(false);
+                }}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  background: "#080e18",
+                  border: "1px solid #1e3a52",
+                  borderRadius: 4,
+                  color: "#bcc",
+                  cursor: "pointer",
+                  padding: "6px 10px",
+                  ...mono,
+                  fontSize: "0.72rem",
+                  marginBottom: 5,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "#0e1f2e"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "#080e18"; }}
+              >
+                {c}
+                <span style={{ color: "#667", fontSize: "0.62rem", marginLeft: 8 }}>
+                  copy command
+                </span>
+              </button>
+            ))}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+              <button
+                type="button"
+                onClick={() => setShowShellPicker(false)}
+                style={{
+                  background: "transparent",
+                  border: "1px solid #66728",
+                  borderRadius: 4,
+                  color: "#667",
+                  cursor: "pointer",
+                  padding: "4px 9px",
+                  ...mono,
+                  fontSize: "0.67rem",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
