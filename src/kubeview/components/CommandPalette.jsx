@@ -5,7 +5,7 @@ import { mono } from "../theme";
 
 export function CommandPalette({ open, query, setQuery, items, onClose, inputRef }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const visible = items.slice(0, 10);
+  const visible = items.filter((i) => !i.separator).slice(0, 10);
   const listRef = useRef(null);
 
   useEffect(() => {
@@ -31,6 +31,8 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
 
   if (!open) return null;
 
+  let renderIdx = 0;
+
   return (
     <div
       style={{
@@ -50,7 +52,7 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
           background: "#0a0f18",
           border: "1px solid #0e1f2e",
           borderRadius: 8,
-          width: "min(500px, 90vw)",
+          width: "min(520px, 90vw)",
           boxShadow: "0 24px 64px rgba(0,0,0,0.95)",
           animation: "fadeIn 0.13s ease",
           overflow: "hidden",
@@ -74,7 +76,7 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
               setQuery(e.target.value);
               setSelectedIndex(0);
             }}
-            placeholder="Open resource, switch cluster…"
+            placeholder="Search resources, open resource view, switch cluster…"
             style={{
               flex: 1,
               background: "none",
@@ -87,36 +89,51 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
           />
           <span style={{ color: "#0e1f2e", fontSize: "0.67rem" }}>ESC</span>
         </div>
-        <div ref={listRef} style={{ maxHeight: 260, overflowY: "auto" }}>
-          {visible.map((item, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => runItem(item)}
-              style={{
-                display: "block",
-                width: "100%",
-                background: selectedIndex === i ? "#0a1420" : "none",
-                border: "none",
-                textAlign: "left",
-                padding: "9px 14px",
-                color: "#4a7a8a",
-                ...mono,
-                fontSize: "0.75rem",
-                cursor: "pointer",
-                borderBottom: "1px solid #080e18",
-              }}
-              onMouseEnter={(e) => {
-                setSelectedIndex(i);
-                e.currentTarget.style.background = "#0a1420";
-              }}
-              onMouseLeave={(e) => {
-                if (selectedIndex !== i) e.currentTarget.style.background = "none";
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+        <div ref={listRef} style={{ maxHeight: 320, overflowY: "auto" }}>
+          {items.map((item, i) => {
+            if (item.separator) {
+              return (
+                <div
+                  key={`sep-${i}`}
+                  style={{
+                    height: 1,
+                    background: "#0e1f2e",
+                    margin: "4px 14px",
+                  }}
+                />
+              );
+            }
+            const idx = renderIdx++;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => runItem(item)}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  background: selectedIndex === idx ? "#0a1420" : "none",
+                  border: "none",
+                  textAlign: "left",
+                  padding: "9px 14px",
+                  color: selectedIndex === idx ? "#c8d6e5" : "#4a7a8a",
+                  ...mono,
+                  fontSize: "0.75rem",
+                  cursor: "pointer",
+                  borderBottom: "1px solid #080e18",
+                }}
+                onMouseEnter={(e) => {
+                  setSelectedIndex(idx);
+                  e.currentTarget.style.background = "#0a1420";
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedIndex !== idx) e.currentTarget.style.background = "none";
+                }}
+              >
+                {item.label}
+              </button>
+            );
+          })}
           {!items.length && (
             <div style={{ padding: "18px 14px", color: "#0e1f2e", ...mono, fontSize: "0.72rem" }}>
               No match

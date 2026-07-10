@@ -95,6 +95,8 @@ async fn get_pod_logs(
     previous: bool,
     container: Option<String>,
 ) -> Result<k8s::PodLogsResponse, String> {
+    k8s::validate_dns_name(&name, "Pod name")?;
+    k8s::validate_dns_name(&namespace, "Namespace")?;
     k8s::get_pod_logs(context, name, namespace, previous, container).await
 }
 
@@ -259,6 +261,8 @@ async fn exec_pod_shell(
     container: Option<String>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
+    k8s::validate_dns_name(&pod, "Pod name")?;
+    k8s::validate_dns_name(&namespace, "Namespace")?;
     k8s::exec_pod_shell(context, namespace, pod, container, app_handle).await
 }
 
@@ -282,6 +286,8 @@ async fn start_log_stream(
     container: Option<String>,
     state: tauri::State<'_, LogStreamManager>,
 ) -> Result<(), String> {
+    k8s::validate_dns_name(&name, "Pod name")?;
+    k8s::validate_dns_name(&namespace, "Namespace")?;
     let stream_id = format!("{:?}/{}/{}", context, namespace, name);
     let cancel = CancellationToken::new();
     state

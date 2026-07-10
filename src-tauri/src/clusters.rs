@@ -34,13 +34,13 @@ fn config_path() -> Option<PathBuf> {
 fn read_app_config() -> AppConfig {
     let path = match config_path() {
         Some(p) => p,
-        None => return AppConfig { kubeconfigs: vec![] },
+        None => return AppConfig { kubeconfigs: vec![], default_context: None },
     };
     let content = match std::fs::read_to_string(&path) {
         Ok(c) => c,
-        Err(_) => return AppConfig { kubeconfigs: vec![] },
+        Err(_) => return AppConfig { kubeconfigs: vec![], default_context: None },
     };
-    serde_json::from_str(&content).unwrap_or(AppConfig { kubeconfigs: vec![] })
+    serde_json::from_str(&content).unwrap_or(AppConfig { kubeconfigs: vec![], default_context: None })
 }
 
 fn write_app_config(config: &AppConfig) -> Result<(), String> {

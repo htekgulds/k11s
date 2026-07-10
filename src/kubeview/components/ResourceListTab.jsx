@@ -27,11 +27,113 @@ export function ResourceListTab({
   const [sortCol, setSortCol] = useState(null);
   const [sortDir, setSortDir] = useState(1);
   const [hovered, setHovered] = useState(null);
+  const [showColPicker, setShowColPicker] = useState(false);
+  const [dragCol, setDragCol] = useState(null);
   const filterRef = useRef(null);
+  const colPickerRef = useRef(null);
+  const resizeRef = useRef(null);
+
+  // Configurable columns — persisted in localStorage per resource type
+  const allCols = COLUMNS[type] || Object.keys(data[0] || {});
+  const storageKey = `k11s_cols_${type}`;
+  const widthKey = `k11s_colw_${type}`;
+  const orderKey = `k11s_order_${type}`;
+  const [visibleCols, setVisibleCols] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : allCols;
+    } catch { return allCols; }
+  });
+  const [colOrder, setColOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem(orderKey);
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+  const [colWidths, setColWidths] = useState(() => {
+    try {
+      const saved = localStorage.getItem(widthKey);
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+
+  // Build effective column list: apply order (if saved), then filter visible
+  const orderedCols = colOrder ? colOrder.filter((c) => visibleCols.includes(c)) : visibleCols;
+  const cols = orderedCols.length ? orderedCols : visibleCols;
+
+  // Keep visibleCols/order in sync when allCols changes (type switch)
+  useEffect(() => {
+    setVisibleCols((prev) => prev.filter((c) => allCols.includes(c)));
+    setColOrder((prev) => prev ? prev.filter((c) => allCols.includes(c)) : null);
+  }, [type]);
+
+  const toggleCol = (col) => {
+    setVisibleCols((prev) => {
+      const next = prev.includes(col) ? prev.filter((c) => c !== col) : [...prev, col];
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  // Column reorder — HTML5 drag and drop
+  const handleDragStart = (col) => (e) => {
+    setDragCol(col);
+    e.dataTransfer.effectAllowed = "move";
+  };
+  const handleDragOver = (col) => (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+  const handleDrop = (targetCol) => (e) => {
+    e.preventDefault();
+    if (!dragCol || dragCol === targetCol) return;
+    const reordered = cols.filter((c) => c !== dragCol);
+    const targetIdx = reordered.indexOf(targetCol);
+    reordered.splice(targetIdx, 0, dragCol);
+    setColOrder(reordered);
+    localStorage.setItem(orderKey, JSON.stringify(reordered));
+    setDragCol(null);
+  };
+
+  // Column resize
+  const startResize = (col, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startW = colWidths[col] || 100;
+    resizeRef.current = { col, startX, startW };
+
+    const onMove = (ev) => {
+      if (!resizeRef.current) return;
+      const { col: c, startX: sx, startW: sw } = resizeRef.current;
+      const w = Math.max(40, sw + (ev.clientX - sx));
+      setColWidths((prev) => {
+        const next = { ...prev, [c]: w };
+        localStorage.setItem(widthKey, JSON.stringify(next));
+        return next;
+      });
+    };
+    const onUp = () => {
+      resizeRef.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  useEffect(() => {
+    if (!showColPicker) return;
+    const close = (e) => {
+      if (colPickerRef.current && !colPickerRef.current.contains(e.target)) setShowColPicker(false);
+    };
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, [showColPicker]);
+
   useHotkeys("/", () => filterRef.current?.focus(), { preventDefault: true, useKey: true }, []);
   useHotkeys("escape", () => { if (filter) setFilter(""); }, { enableOnFormTags: true }, [filter, setFilter]);
 
-  const cols = COLUMNS[type] || Object.keys(data[0] || {});
   const rows = data.filter((r) => {
     const nsOk = !namespace || namespace === "All" || r.namespace === namespace || !r.namespace;
     const txOk =
@@ -121,6 +223,67 @@ export function ResourceListTab({
         <span style={{ color: "#0a1420", ...mono, fontSize: "0.62rem", marginLeft: 2 }}>
           {(data || []).length} items
         </span>
+        <div style={{ position: "relative", marginLeft: 4 }} ref={colPickerRef}>
+          <button
+            type="button"
+            onClick={() => setShowColPicker((v) => !v)}
+            title="Toggle columns"
+            style={{
+              background: "none",
+              border: "1px solid #0e1f2e",
+              borderRadius: 3,
+              color: "#1e3a52",
+              cursor: "pointer",
+              padding: "2px 7px",
+              ...mono,
+              fontSize: "0.67rem",
+            }}
+          >
+            ☰ cols
+          </button>
+          {showColPicker && (
+            <div
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                marginTop: 4,
+                background: "#0a0f18",
+                border: "1px solid #0e1f2e",
+                borderRadius: 6,
+                padding: "4px 0",
+                zIndex: 50,
+                minWidth: 150,
+                boxShadow: "0 8px 24px rgba(0,0,0,0.7)",
+              }}
+            >
+              {allCols.map((c) => (
+                <label
+                  key={c}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "5px 14px",
+                    cursor: "pointer",
+                    color: "#4a7a8a",
+                    ...mono,
+                    fontSize: "0.72rem",
+                    userSelect: "none",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={visibleCols.includes(c)}
+                    onChange={() => toggleCol(c)}
+                    style={{ accentColor: "#39ff8a" }}
+                  />
+                  {c.replace(/_/g, " ")}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onClick={onRefresh}
@@ -165,6 +328,10 @@ export function ResourceListTab({
                 {cols.map((c) => (
                   <th
                     key={c}
+                    draggable
+                    onDragStart={handleDragStart(c)}
+                    onDragOver={handleDragOver(c)}
+                    onDrop={handleDrop(c)}
                     onClick={() => handleSort(c)}
                     style={{
                       padding: "7px 13px",
@@ -178,10 +345,24 @@ export function ResourceListTab({
                       cursor: "pointer",
                       userSelect: "none",
                       whiteSpace: "nowrap",
+                      width: colWidths[c] || undefined,
+                      position: "relative",
+                      opacity: dragCol === c ? 0.4 : 1,
                     }}
                   >
                     {c.replace(/_/g, " ")}
                     {sortCol === c ? (sortDir > 0 ? " ↑" : " ↓") : ""}
+                    <div
+                      onMouseDown={(e) => startResize(c, e)}
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: 5,
+                        cursor: "col-resize",
+                      }}
+                    />
                   </th>
                 ))}
               </tr>

@@ -6,6 +6,7 @@ use k8s_openapi::api::networking::v1::Ingress;
 use kube::config::KubeConfigOptions;
 use kube::{api::ListParams, Api, Client, Config};
 use kube::api::{DeleteParams, Patch, PatchParams};
+use kube::core::{DynamicObject, GroupVersionKind};
 use serde::Serialize;
 use serde_json::json;
 use std::collections::HashMap;
@@ -24,6 +25,31 @@ pub(crate) async fn make_client(context: Option<String>) -> Result<Client, Strin
         .await
         .map_err(|e| format!("Failed to load kubeconfig: {e}"))?;
     Client::try_from(config).map_err(|e| format!("Failed to create client: {e}"))
+}
+
+/// Validate a Kubernetes resource name conforms to DNS-1123 label pattern.
+/// Accepts lowercase alphanumeric, hyphens, dots; max 253 chars.
+pub(crate) fn validate_dns_name(name: &str, label: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err(format!("{label} must not be empty"));
+    }
+    if name.len() > 253 {
+        return Err(format!("{label} too long (max 253 chars): got {}", name.len()));
+    }
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '.')
+    {
+        return Err(format!(
+            "{label} must be lowercase alphanumeric, hyphens, or dots: got \"{name}\""
+        ));
+    }
+    if name.starts_with('-') || name.ends_with('-') || name.starts_with('.') || name.ends_with('.') {
+        return Err(format!(
+            "{label} must not start or end with hyphen or dot: got \"{name}\""
+        ));
+    }
+    Ok(())
 }
 
 fn fmt_age(ts: &Option<k8s_openapi::apimachinery::pkg::apis::meta::v1::Time>) -> String {
@@ -893,47 +919,70 @@ pub async fn get_events(
 
 
 
-/// Apply YAML to the cluster using kubectl apply via stdin.
+/// Apply YAML to the cluster using kube-rs native server-side apply.
 pub async fn apply_yaml(
     context: Option<String>,
     yaml_content: String,
 ) -> Result<String, String> {
-    use tokio::io::AsyncWriteExt;
 
-    let mut cmd = tokio::process::Command::new("kubectl");
-    if let Some(ref ctx) = context {
-        cmd.arg("--context").arg(ctx);
-    }
-    cmd.arg("apply").arg("-f").arg("-");
+    let client = make_client(context).await?;
 
-    cmd.stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
+    // Parse YAML to JSON Value
+    let value: serde_json::Value = serde_yaml::from_str(&yaml_content)
+        .map_err(|e| format!("Failed to parse YAML: {e}"))?;
 
-    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn kubectl apply: {e}"))?;
+    // Clone extracted strings before moving value
+    let api_version = value["apiVersion"]
+        .as_str()
+        .ok_or("Missing apiVersion in YAML")?
+        .to_string();
+    let kind = value["kind"]
+        .as_str()
+        .ok_or("Missing kind in YAML")?
+        .to_string();
+    let name = value["metadata"]["name"]
+        .as_str()
+        .ok_or("Missing metadata.name in YAML")?
+        .to_string();
+    let namespace = value["metadata"]["namespace"].as_str().map(|s| s.to_string());
 
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(yaml_content.as_bytes())
-            .await
-            .map_err(|e| format!("Failed to write YAML to stdin: {e}"))?;
-        // Drop stdin to close it
-        drop(stdin);
-    }
+    // Build GroupVersionKind from the document
+    let (group, version) = match api_version.split_once('/') {
+        Some((g, v)) => (g.to_string(), v.to_string()),
+        None => ("".to_string(), api_version.clone()),
+    };
+    let gvk = GroupVersionKind { group, version, kind: kind.clone() };
 
-    let output = child
-        .wait_with_output()
+    // Convert raw value to DynamicObject (take ownership of value)
+    let obj: DynamicObject = serde_json::from_value(value)
+        .map_err(|e| format!("Failed to convert resource: {e}"))?;
+
+    // Discover the API resource for this GVK
+    let discovery = kube::discovery::Discovery::new(client.clone())
+        .run()
         .await
-        .map_err(|e| format!("Failed to wait for kubectl apply: {e}"))?;
+        .map_err(|e| format!("Failed to discover API resources: {e}"))?;
+    let (api_resource, _caps) = discovery
+        .resolve_gvk(&gvk)
+        .ok_or_else(|| format!("Unknown resource type: {kind} ({api_version})"))?
+        .clone();
 
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-    if output.status.success() {
-        Ok(stdout)
+    // Build the typed API — namespaced or cluster-scoped
+    let api: Api<DynamicObject> = if let Some(ref ns) = namespace {
+        Api::namespaced_with(client, ns, &api_resource)
     } else {
-        Err(format!("kubectl apply failed: {stderr}{stdout}"))
-    }
+        Api::default_namespaced_with(client, &api_resource)
+    };
+
+    // Server-side apply (force=true to auto-resolve field manager conflicts)
+    let params = PatchParams::apply("k11s").force();
+    let patch = Patch::Apply(&obj);
+
+    api.patch(&name, &params, &patch)
+        .await
+        .map_err(|e| format!("Apply failed: {e}"))?;
+
+    Ok(format!("Applied {kind}/{name}"))
 }
 
 pub async fn describe_resource(

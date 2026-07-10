@@ -13,6 +13,7 @@ import { StatusBar } from "./components/StatusBar";
 import { TopBar } from "./components/TopBar";
 import { mono } from "./theme";
 import { assignClusterColors, detailTabId, getClusterColor } from "./utils/clusterColors";
+import { useToasts, ToastContainer } from "./components/ui/Toast";
 
 function detailTabsOnly(tabs) {
   return tabs.filter((t) => t.type === "detail");
@@ -67,6 +68,7 @@ export default function KubeClient() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [clock, setClock] = useState(() => new Date());
   const [kubeconfigPaths, setKubeconfigPaths] = useState([]);
+  const { toasts, addToast, removeToast } = useToasts();
   const cmdRef = useRef(null);
   const unlistenRef = useRef(null);
   const activeIdRef = useRef(activeClusterId);
@@ -222,12 +224,33 @@ export default function KubeClient() {
 
   useEffect(() => {
     if (!activeClusterId) return;
-    const check = () => {
-      clusterHealth(activeClusterId).then(setConnected).catch(() => setConnected(false));
+    let failureCount = 0;
+    let timer = null;
+
+    const scheduleNext = () => {
+      const backoff = connected
+        ? 10000
+        : Math.min(10000 * Math.pow(2, failureCount), 120000); // max 2min
+      timer = setTimeout(check, backoff);
     };
+
+    const check = () => {
+      clusterHealth(activeClusterId)
+        .then((ok) => {
+          setConnected(ok);
+          if (ok) failureCount = 0;
+          else failureCount++;
+          scheduleNext();
+        })
+        .catch(() => {
+          setConnected(false);
+          failureCount++;
+          scheduleNext();
+        });
+    };
+
     check();
-    const t = setInterval(check, 10000);
-    return () => clearInterval(t);
+    return () => clearTimeout(timer);
   }, [activeClusterId]);
 
   const handleAddCluster = useCallback(async () => {
@@ -243,16 +266,20 @@ export default function KubeClient() {
   const handleAddKubeconfigByPath = useCallback(async (path) => {
     try {
       const updated = await addKubeconfigByPath(path);
-      if (!updated) return;
+      if (!updated) { addToast("No changes: path is already configured", "warning"); return; }
       const colored = assignClusterColors(updated);
       setClusters(colored);
       setClustersError(null);
       setActiveClusterId((prev) => prev || colored[0]?.id || null);
-      getKubeconfigPaths().then(setKubeconfigPaths).catch(() => {});
+      getKubeconfigPaths().then((paths) => {
+        setKubeconfigPaths(paths);
+        addToast(`Kubeconfig added: ${path}`, "success");
+      }).catch(() => {});
     } catch (e) {
       console.error("Failed to add kubeconfig by path:", e);
+      addToast(`Failed to add kubeconfig: ${e}`, "error");
     }
-  }, []);
+  }, [addToast]);
 
   const switchCluster = useCallback((cid) => {
     setActiveClusterId(cid);
@@ -344,6 +371,18 @@ export default function KubeClient() {
   const detailObj = resolveDetailObject(activeDetailTab, tabData);
   const activeCluster = clusters.find((c) => c.id === activeClusterId);
 
+  // Auto-close stale detail tabs whose resource no longer exists in data
+  useEffect(() => {
+    const staleTab = nav.tabs.find((t) => {
+      if (t.type !== "detail") return false;
+      const td = clusterData[t.clusterId] || {};
+      return !resolveDetailObject(t, td);
+    });
+    if (staleTab) {
+      closeTab(staleTab.id);
+    }
+  }, [clusterData, nav.tabs, closeTab]);
+
   const cmdItems = [
     ...clusters
       .filter((c) => c.id !== activeClusterId)
@@ -360,7 +399,55 @@ export default function KubeClient() {
         setActiveTab(null);
       },
     },
-  ].filter((i) => !cmdQuery || i.label.toLowerCase().includes(cmdQuery.toLowerCase()));
+  ];
+
+  // Build resource search results from all clusters when palette is open with a query
+  const resourceItems = cmdOpen && cmdQuery
+    ? (() => {
+        const q = cmdQuery.toLowerCase();
+        const results = [];
+        for (const [cid, cdata] of Object.entries(clusterData)) {
+          const clusterLabel = clusters.find((c) => c.id === cid)?.label || cid;
+          for (const [rtKey, items] of Object.entries(cdata)) {
+            if (!Array.isArray(items)) continue;
+            const rt = RESOURCE_TYPES.find((r) => r.key === rtKey);
+            const rtLabel = rt?.label || rtKey;
+            for (const obj of items) {
+              const searchStr = `${obj.name} ${obj.namespace || ""} ${rtLabel}`.toLowerCase();
+              if (searchStr.includes(q)) {
+                results.push({
+                  label: `${rtLabel.slice(0, 4)} ${obj.name} ${obj.namespace ? `(${obj.namespace})` : ""}`,
+                  clusterId: cid,
+                  rt: rtKey,
+                  obj,
+                });
+              }
+            }
+          }
+        }
+        // Sort: exact name match first, then by name
+        results.sort((a, b) => {
+          const aExact = a.obj.name.toLowerCase() === q ? 0 : 1;
+          const bExact = b.obj.name.toLowerCase() === q ? 0 : 1;
+          return aExact - bExact || a.obj.name.localeCompare(b.obj.name);
+        });
+        return results.slice(0, 20);
+      })()
+    : [];
+
+  const paletteItems = resourceItems.length > 0
+    ? [
+        ...resourceItems.map((r) => ({
+          label: `📎 ${r.label}`,
+          fn: () => openDetail(r.rt, r.obj, r.clusterId),
+        })),
+        ...(cmdItems.some((i) => {
+          const q = (cmdQuery || "").toLowerCase();
+          return !q || i.label.toLowerCase().includes(q);
+        }) ? [{ separator: true }] : []),
+        ...cmdItems.filter((i) => !cmdQuery || i.label.toLowerCase().includes(cmdQuery.toLowerCase())),
+      ]
+    : cmdItems.filter((i) => !cmdQuery || i.label.toLowerCase().includes(cmdQuery.toLowerCase()));
 
   useHotkeys("escape", () => setCmdOpen(false), { enableOnFormTags: true });
   useHotkeys("mod+k, :", () => setCmdOpen(true), { preventDefault: true, useKey: true });
@@ -522,7 +609,7 @@ export default function KubeClient() {
         open={cmdOpen}
         query={cmdQuery}
         setQuery={setCmdQuery}
-        items={cmdItems}
+        items={paletteItems}
         inputRef={cmdRef}
         onClose={() => {
           setCmdOpen(false);
@@ -559,6 +646,7 @@ export default function KubeClient() {
       </div>
 
       <StatusBar activeCluster={activeCluster} connected={connected} version="v0.1.0" kubeconfigPaths={kubeconfigPaths} onAddCluster={handleAddCluster} />
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }
