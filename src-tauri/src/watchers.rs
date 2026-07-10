@@ -6,6 +6,7 @@ use tokio_util::sync::CancellationToken;
 use k8s_openapi::api::apps::v1::{Deployment, StatefulSet};
 use k8s_openapi::api::core::v1::{ConfigMap, Node, PersistentVolumeClaim, Pod, Secret, Service};
 use k8s_openapi::api::networking::v1::Ingress;
+use futures::StreamExt;
 use kube::runtime::watcher;
 use kube::{Api, Client, Resource, ResourceExt};
 use serde::Serialize;
@@ -158,10 +159,7 @@ async fn run_watcher(
             serde_json::to_value(k8s::pod_to_info(p)).unwrap_or_default()
         })
         .await,
-        "nodes" => watch_type::<Node, _>(app, context, resource_type, client, cancel, |n| {
-            serde_json::to_value(k8s::node_to_info(n, 0)).unwrap_or_default()
-        })
-        .await,
+        "nodes" => watch_nodes(app, context, resource_type, client, cancel).await,
         "deployments" => watch_type::<Deployment, _>(app, context, resource_type, client, cancel, |d| {
             serde_json::to_value(k8s::deployment_to_info(d)).unwrap_or_default()
         })
@@ -236,6 +234,46 @@ async fn watch_type<K, F>(
                     Some(Err(e)) => {
                         eprintln!("watcher error for {resource_type}: {e:?}");
                         // watcher auto-recovers
+                    }
+                    None => break,
+                }
+            }
+        }
+    }
+}
+
+async fn watch_nodes(
+    app: tauri::AppHandle,
+    context: String,
+    resource_type: String,
+    client: Client,
+    cancel: CancellationToken,
+) {
+    let api = Api::<Node>::all(client.clone());
+    let stream = watcher(api, watcher::Config::default());
+    tokio::pin!(stream);
+
+    loop {
+        tokio::select! {
+            _ = cancel.cancelled() => break,
+            maybe_event = stream.next() => {
+                match maybe_event {
+                    Some(Ok(watcher::Event::Apply(obj))) | Some(Ok(watcher::Event::InitApply(obj))) => {
+                        let counts = k8s::pods_per_node(&client).await;
+                        let node_name = obj.metadata.name.clone().unwrap_or_default();
+                        let count = counts.get(&node_name).copied().unwrap_or(0);
+                        let v = serde_json::to_value(k8s::node_to_info(obj, count)).unwrap_or_default();
+                        emit_apply(&app, &context, &resource_type, &v);
+                    }
+                    Some(Ok(watcher::Event::Delete(obj))) => {
+                        emit_delete(&app, &context, &resource_type, &obj);
+                    }
+                    Some(Ok(watcher::Event::InitDone)) => {
+                        emit(&app, &context, &resource_type, "init_done", "", "", None);
+                    }
+                    Some(Ok(watcher::Event::Init)) => {}
+                    Some(Err(e)) => {
+                        eprintln!("watcher error for nodes: {e:?}");
                     }
                     None => break,
                 }

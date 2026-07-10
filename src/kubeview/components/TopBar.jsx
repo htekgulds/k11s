@@ -112,7 +112,16 @@ export function TopBar({
                 }}
               />
 
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{tab.label}</span>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>
+                {tab.namespace ? (
+                  <>
+                    <span style={{ color: isAct ? "#4a7a8a" : "#1e3a52" }}>{tab.namespace}/</span>
+                    <span>{tab.name.length > 20 ? `${tab.name.slice(0, 18)}…` : tab.name}</span>
+                  </>
+                ) : (
+                  tab.label
+                )}
+              </span>
               {tabErr && (
                 <span
                   style={{

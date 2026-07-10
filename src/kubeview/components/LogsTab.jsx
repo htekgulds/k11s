@@ -7,6 +7,10 @@ export function LogsTab({ obj, clusterId }) {
   const [logs, setLogs] = useState(null);
   const [fetching, setFetching] = useState(false);
   const [previous, setPrevious] = useState(false);
+  const [container, setContainer] = useState(null);
+
+  const containers = obj?.containers || [];
+  const multiContainer = containers.length > 1;
 
   const load = useCallback(
     async (force) => {
@@ -15,7 +19,7 @@ export function LogsTab({ obj, clusterId }) {
       try {
         const res = await k8sInvoke(
           "get_pod_logs",
-          { name: obj.name, namespace: obj.namespace, previous },
+          { name: obj.name, namespace: obj.namespace, container, previous },
           clusterId,
         );
         setLogs(res);
@@ -25,7 +29,7 @@ export function LogsTab({ obj, clusterId }) {
         setFetching(false);
       }
     },
-    [obj.name, obj.namespace, clusterId, logs, previous],
+    [obj.name, obj.namespace, clusterId, logs, container, previous],
   );
 
   useEffect(() => { load(); }, [load]);
@@ -41,6 +45,7 @@ export function LogsTab({ obj, clusterId }) {
           alignItems: "center",
           background: "#050910",
           flexShrink: 0,
+          flexWrap: "wrap",
         }}
       >
         <span
@@ -54,7 +59,29 @@ export function LogsTab({ obj, clusterId }) {
         >
           stdout · stderr
           {previous && <span style={{ color: "#f9a8d4", marginLeft: 6 }}>· previous</span>}
+          {multiContainer && container && <span style={{ color: "#39ff8a", marginLeft: 6 }}>· {container}</span>}
         </span>
+
+        {multiContainer && (
+          <select
+            value={container || ""}
+            onChange={(e) => setContainer(e.target.value || null)}
+            style={{
+              background: "#0a1018",
+              border: "1px solid #0e1f2e",
+              borderRadius: 3,
+              color: "#39ff8a",
+              ...mono,
+              fontSize: "0.67rem",
+              padding: "2px 5px",
+            }}
+          >
+            <option value="">all containers</option>
+            {containers.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        )}
         <button
           type="button"
           onClick={() => setPrevious((p) => !p)}
