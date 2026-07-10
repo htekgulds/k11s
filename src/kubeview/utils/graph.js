@@ -1,4 +1,4 @@
-import { RESOURCE_TYPES } from "../constants";
+import { COMMON_RESOURCES } from "../constants";
 
 export function buildGraph(obj, type, allData) {
   const nodes = [];
@@ -73,7 +73,7 @@ export function buildGraph(obj, type, allData) {
     add(
       obj.name,
       obj.name,
-      RESOURCE_TYPES.find((r) => r.key === type)?.label.replace(/s$/, "") || type,
+      COMMON_RESOURCES.find((r) => r.key === type)?.label.replace(/s$/, "") || type,
       "ok",
       obj.namespace || "",
     );

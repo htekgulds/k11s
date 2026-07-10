@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Trash2 } from "lucide-react";
-import { COLUMNS } from "../constants";
+import { getColumns } from "../constants";
 import { mono } from "../theme";
 import { nsColor } from "../utils/colors";
 import { Pill } from "./ui/Pill";
@@ -31,7 +31,7 @@ export function ResourceListTab({
   useHotkeys("/", () => filterRef.current?.focus(), { preventDefault: true, useKey: true }, []);
   useHotkeys("escape", () => { if (filter) setFilter(""); }, { enableOnFormTags: true }, [filter, setFilter]);
 
-  const cols = COLUMNS[type] || Object.keys(data[0] || {});
+  const cols = getColumns(type) || Object.keys(data[0] || {});
   const rows = data.filter((r) => {
     const nsOk = !namespace || namespace === "All" || r.namespace === namespace || !r.namespace;
     const txOk =

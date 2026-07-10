@@ -1,13 +1,25 @@
 import { useState } from "react";
-import { Plus, FileInput } from "lucide-react";
-import { RESOURCE_TYPES } from "../constants";
+import { Plus, FileInput, ChevronDown, ChevronRight } from "lucide-react";
+import { COMMON_RESOURCES, getResourceIcon } from "../constants";
 import { mono } from "../theme";
 import { PortForwardPanel } from "./PortForwardPanel";
 
-export function Sidebar({ clusterState, activeCluster, data, loading, onOpenResource, onAddCluster, onAddKubeconfigByPath }) {
+export function Sidebar({
+  clusterState,
+  activeCluster,
+  data,
+  loading,
+  onOpenResource,
+  onAddCluster,
+  onAddKubeconfigByPath,
+  discoveredResources,
+}) {
   const clustersColor = activeCluster?.color || "#39ff8a";
   const [manualPath, setManualPath] = useState("");
   const [showManualInput, setShowManualInput] = useState(false);
+  const [otherOpen, setOtherOpen] = useState(false);
+
+  const otherResources = (discoveredResources || []).filter((r) => !r.is_common);
 
   const handleSubmitManualPath = async () => {
     const trimmed = manualPath.trim();
@@ -19,6 +31,62 @@ export function Sidebar({ clusterState, activeCluster, data, loading, onOpenReso
     } catch (e) {
       console.error("Failed to add kubeconfig by path:", e);
     }
+  };
+
+  const itemStyle = (isAct, isOpen) => ({
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    background: isAct ? "#080e18" : "none",
+    border: "none",
+    borderLeft: isAct
+      ? `2px solid ${clustersColor}`
+      : isOpen
+        ? `2px solid ${clustersColor}55`
+        : "2px solid transparent",
+    color: isAct ? "#bdd" : isOpen ? "#4a7a8a" : "#2d4a6a",
+    padding: "6px 9px 6px 10px",
+    cursor: "pointer",
+    ...mono,
+    fontSize: "0.71rem",
+    width: "100%",
+    textAlign: "left",
+  });
+
+  const resourceButton = (plural, label) => {
+    const count = (data[plural] || []).length;
+    const hasErr = (data[plural] || []).some((r) =>
+      ["CrashLoopBackOff", "NotReady", "Error"].includes(r.status),
+    );
+    const isAct = clusterState.activeResource === plural && !clusterState.activeTab;
+    const isOpen = clusterState.activeResource === plural && !clusterState.activeTab;
+    return (
+      <button
+        key={plural}
+        type="button"
+        onClick={() => onOpenResource(plural)}
+        style={itemStyle(isAct, isOpen)}
+        onMouseEnter={(e) => {
+          if (!isAct) e.currentTarget.style.background = "#060c14";
+        }}
+        onMouseLeave={(e) => {
+          if (!isAct) e.currentTarget.style.background = "none";
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {getResourceIcon(plural)}
+          {label}
+        </span>
+        <span
+          style={{
+            fontSize: "0.62rem",
+            color: hasErr ? "#ff4d4d" : isAct ? clustersColor : isOpen ? "#2d4a6a" : "#0e1f2e",
+          }}
+        >
+          {loading[plural] ? "…" : count || ""}
+        </span>
+      </button>
+    );
   };
 
   return (
@@ -45,57 +113,43 @@ export function Sidebar({ clusterState, activeCluster, data, loading, onOpenReso
         >
           Resources
         </div>
-        {RESOURCE_TYPES.map((rt) => {
-          const count = (data[rt.key] || []).length;
-          const hasErr = (data[rt.key] || []).some((r) =>
-            ["CrashLoopBackOff", "NotReady", "Error"].includes(r.status),
-          );
-          const isAct =
-            clusterState.activeResource === rt.key && !clusterState.activeTab;
-          const isOpen = clusterState.activeResource === rt.key && !clusterState.activeTab;
-          return (
-            <button
-              key={rt.key}
-              type="button"
-              onClick={() => onOpenResource(rt.key)}
+        {COMMON_RESOURCES.map((rt) => resourceButton(rt.key, rt.label))}
+
+        {otherResources.length > 0 && (
+          <>
+            <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                background: isAct ? "#080e18" : "none",
-                border: "none",
-                borderLeft: isAct
-                  ? `2px solid ${clustersColor}`
-                  : isOpen
-                    ? `2px solid ${clustersColor}55`
-                    : "2px solid transparent",
-                color: isAct ? "#bdd" : isOpen ? "#4a7a8a" : "#2d4a6a",
-                padding: "6px 9px 6px 10px",
-                cursor: "pointer",
-                ...mono,
-                fontSize: "0.71rem",
-                width: "100%",
-                textAlign: "left",
-              }}
-              onMouseEnter={(e) => {
-                if (!isAct) e.currentTarget.style.background = "#060c14";
-              }}
-              onMouseLeave={(e) => {
-                if (!isAct) e.currentTarget.style.background = "none";
+                padding: "2px 6px",
+                borderTop: "1px solid #080e18",
+                marginTop: 2,
               }}
             >
-              {rt.label}
-              <span
+              <button
+                type="button"
+                onClick={() => setOtherOpen((v) => !v)}
                 style={{
-                  fontSize: "0.62rem",
-                  color: hasErr ? "#ff4d4d" : isAct ? clustersColor : isOpen ? "#2d4a6a" : "#0e1f2e",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  background: "none",
+                  border: "none",
+                  color: "#1e3a52",
+                  cursor: "pointer",
+                  ...mono,
+                  fontSize: "0.6rem",
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "4px 4px",
                 }}
               >
-                {loading[rt.key] ? "…" : count || ""}
-              </span>
-            </button>
-          );
-        })}
+                {otherOpen ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+                Other Resources ({otherResources.length})
+              </button>
+            </div>
+            {otherOpen &&
+              otherResources.map((r) => resourceButton(r.plural, r.kind || r.plural))}
+          </>
+        )}
       </div>
 
       <PortForwardPanel clusterId={activeCluster?.id} />
