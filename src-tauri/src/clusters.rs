@@ -19,6 +19,8 @@ pub struct ClusterInfo {
 struct AppConfig {
     #[serde(default)]
     kubeconfigs: Vec<String>,
+    #[serde(default)]
+    default_context: Option<String>,
 }
 
 fn config_path() -> Option<PathBuf> {
@@ -173,6 +175,92 @@ pub fn add_kubeconfig_folder(folder: &str) -> Result<Vec<ClusterInfo>, String> {
 
     write_app_config(&app_config)?;
     list_clusters()
+}
+
+pub fn list_kubeconfig_paths() -> Result<Vec<String>, String> {
+    let config = read_app_config();
+    let mut paths = config.kubeconfigs;
+
+    // Include default kubeconfig path
+    if let Some(home) = std::env::var("HOME").ok() {
+        let default_path = std::path::PathBuf::from(&home).join(".kube").join("config");
+        if default_path.exists() {
+            let canonical = default_path.to_string_lossy().to_string();
+            if !paths.contains(&canonical) {
+                paths.insert(0, canonical);
+            }
+        }
+    }
+
+    // Include KUBECONFIG env var paths
+    if let Ok(kc_env) = std::env::var("KUBECONFIG") {
+        for part in kc_env.split(':') {
+            let p = part.trim().to_string();
+            if !p.is_empty() && !paths.contains(&p) {
+                paths.push(p);
+            }
+        }
+    }
+
+    Ok(paths)
+}
+
+pub fn remove_kubeconfig_path(path: &str) -> Result<Vec<ClusterInfo>, String> {
+    let mut config = read_app_config();
+    config.kubeconfigs.retain(|p| p != path);
+    write_app_config(&config)?;
+    list_clusters()
+}
+
+/// Parse CLI args from the command line and apply them to the app config.
+/// Called once at startup before the Tauri app initializes.
+/// Currently handles `--kubeconfig <path>` and `--context <name>`.
+pub fn apply_cli_args() {
+    let args: Vec<String> = std::env::args().collect();
+    let mut i = 1;
+    while i < args.len() {
+        let arg = &args[i];
+        if arg == "--kubeconfig" || arg == "-k" {
+            if i + 1 < args.len() {
+                let path = args[i + 1].clone();
+                let mut config = read_app_config();
+                if !config.kubeconfigs.iter().any(|p| p == &path) {
+                    if std::path::Path::new(&path).exists() {
+                        config.kubeconfigs.push(path);
+                        if let Err(e) = write_app_config(&config) {
+                            eprintln!("Failed to save --kubeconfig path: {e}");
+                        }
+                    } else {
+                        eprintln!("Warning: --kubeconfig path does not exist: {path}");
+                    }
+                }
+                i += 2;
+            } else {
+                eprintln!("Warning: --kubeconfig requires a path argument");
+                i += 1;
+            }
+        } else if arg == "--context" || arg == "-c" {
+            if i + 1 < args.len() {
+                let ctx = args[i + 1].clone();
+                let mut config = read_app_config();
+                config.default_context = Some(ctx);
+                if let Err(e) = write_app_config(&config) {
+                    eprintln!("Failed to save --context: {e}");
+                }
+                i += 2;
+            } else {
+                eprintln!("Warning: --context requires a context name argument");
+                i += 1;
+            }
+        } else {
+            i += 1;
+        }
+    }
+}
+
+pub fn get_default_context() -> Option<String> {
+    let config = read_app_config();
+    config.default_context
 }
 
 pub fn list_clusters() -> Result<Vec<ClusterInfo>, String> {

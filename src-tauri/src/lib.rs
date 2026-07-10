@@ -148,6 +148,21 @@ fn add_kubeconfig_folder(folder_path: String) -> Result<Vec<clusters::ClusterInf
 }
 
 #[tauri::command]
+fn get_kubeconfig_paths() -> Result<Vec<String>, String> {
+    clusters::list_kubeconfig_paths()
+}
+
+#[tauri::command]
+fn remove_kubeconfig_path(path: String) -> Result<Vec<clusters::ClusterInfo>, String> {
+    clusters::remove_kubeconfig_path(&path)
+}
+
+#[tauri::command]
+fn get_default_context() -> Option<String> {
+    clusters::get_default_context()
+}
+
+#[tauri::command]
 async fn stop_watchers(
     context: String,
     state: tauri::State<'_, watchers::WatcherManager>,
@@ -169,6 +184,8 @@ async fn rollout_action(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Apply CLI args before Tauri initializes (e.g. --kubeconfig <path>)
+    clusters::apply_cli_args();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -195,6 +212,9 @@ pub fn run() {
             stop_watchers,
             add_kubeconfig_files,
             add_kubeconfig_folder,
+            get_kubeconfig_paths,
+            remove_kubeconfig_path,
+            get_default_context,
             rollout_action,
         ])
         .run(tauri::generate_context!())

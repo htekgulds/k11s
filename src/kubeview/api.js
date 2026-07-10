@@ -51,10 +51,26 @@ export async function rolloutAction(clusterId, kind, name, namespace, action) {
  * Returns an unlisten function to be called on cleanup.
  * @param {(payload: WatchEventPayload) => void} callback
  */
-export function onResourceUpdate(callback) {
+export async function onResourceUpdate(callback) {
   return listen("resource-update", (event) => {
     callback(event.payload);
   });
+}
+
+export async function getKubeconfigPaths() {
+  return invoke("get_kubeconfig_paths");
+}
+
+export async function removeKubeconfigPath(path) {
+  return invoke("remove_kubeconfig_path", { path });
+}
+
+export async function getDefaultContext() {
+  return invoke("get_default_context");
+}
+
+export async function addKubeconfigByPath(path) {
+  return invoke("add_kubeconfig_files", { filePaths: [path] });
 }
 
 export function applyYaml(context, yamlContent) {
