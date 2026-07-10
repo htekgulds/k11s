@@ -42,16 +42,21 @@ export async function stopWatchers(clusterId) {
   return invoke("stop_watchers", { context: ctx });
 }
 
+export async function rolloutAction(clusterId, kind, name, namespace, action) {
+  return invoke("rollout_action", { context: clusterId ?? null, kind, name, namespace, action });
+}
+
 /**
  * Listen for resource-update events.
  * Returns an unlisten function to be called on cleanup.
  * @param {(payload: WatchEventPayload) => void} callback
  */
-export function onResourceUpdate(callback) {
+export async function onResourceUpdate(callback) {
   return listen("resource-update", (event) => {
     callback(event.payload);
   });
 }
+
 // ── Shell Exec ──────────────────────────────────────────────────────────────
 
 export function execPodShell(context, namespace, pod, container) {
@@ -79,5 +84,36 @@ export function execPodStop(sessionId) {
 export async function onShellOutput(callback) {
   return listen("shell-output", (event) => {
     callback(event.payload);
+  });
+}
+
+export async function getKubeconfigPaths() {
+  return invoke("get_kubeconfig_paths");
+}
+
+export async function removeKubeconfigPath(path) {
+  return invoke("remove_kubeconfig_path", { path });
+}
+
+export async function getDefaultContext() {
+  return invoke("get_default_context");
+}
+
+export async function addKubeconfigByPath(path) {
+  return invoke("add_kubeconfig_files", { filePaths: [path] });
+}
+
+export function applyYaml(context, yamlContent) {
+  return invoke("apply_yaml", { context: context ?? null, yamlContent });
+}
+
+export async function deleteResource(clusterId, kind, name, namespace, gracePeriodSeconds = null, force = false) {
+  return invoke("delete_resource", {
+    context: clusterId ?? null,
+    kind,
+    name,
+    namespace,
+    grace_period_seconds: gracePeriodSeconds,
+    force,
   });
 }
