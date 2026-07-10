@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Plus } from "lucide-react";
-import { addKubeconfig, clusterHealth, k8sInvoke, listClusters, onResourceUpdate, startWatchers, stopWatchers } from "./api";
+import { addKubeconfig, addKubeconfigByPath, clusterHealth, getDefaultContext, getKubeconfigPaths, k8sInvoke, listClusters, onResourceUpdate, removeKubeconfigPath, startWatchers, stopWatchers } from "./api";
 import { defaultNavState, RESOURCE_TYPES } from "./constants";
 
 import { CommandPalette } from "./components/CommandPalette";
 import { DetailView } from "./components/DetailView";
 import { ResourceListTab } from "./components/ResourceListTab";
+import { ShortcutsModal } from "./components/ShortcutsModal";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { TopBar } from "./components/TopBar";
@@ -63,7 +64,9 @@ export default function KubeClient() {
   const [connected, setConnected] = useState(true);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [clock, setClock] = useState(() => new Date());
+  const [kubeconfigPaths, setKubeconfigPaths] = useState([]);
   const cmdRef = useRef(null);
   const unlistenRef = useRef(null);
   const activeIdRef = useRef(activeClusterId);
@@ -195,10 +198,21 @@ export default function KubeClient() {
         const colored = assignClusterColors(list);
         setClusters(colored);
         setClustersError(null);
-        const initial = colored[0]?.id;
-        if (initial) setActiveClusterId(initial);
+        // Auto-select default context if set via --context CLI flag
+        getDefaultContext().then((ctx) => {
+          if (ctx && colored.find((c) => c.id === ctx)) {
+            setActiveClusterId(ctx);
+          } else {
+            const initial = colored[0]?.id;
+            if (initial) setActiveClusterId(initial);
+          }
+        }).catch(() => {
+          const initial = colored[0]?.id;
+          if (initial) setActiveClusterId(initial);
+        });
       })
       .catch((err) => setClustersError(String(err)));
+    getKubeconfigPaths().then(setKubeconfigPaths).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -223,6 +237,21 @@ export default function KubeClient() {
     setClusters(colored);
     setClustersError(null);
     setActiveClusterId((prev) => prev || colored[0]?.id || null);
+    getKubeconfigPaths().then(setKubeconfigPaths).catch(() => {});
+  }, []);
+
+  const handleAddKubeconfigByPath = useCallback(async (path) => {
+    try {
+      const updated = await addKubeconfigByPath(path);
+      if (!updated) return;
+      const colored = assignClusterColors(updated);
+      setClusters(colored);
+      setClustersError(null);
+      setActiveClusterId((prev) => prev || colored[0]?.id || null);
+      getKubeconfigPaths().then(setKubeconfigPaths).catch(() => {});
+    } catch (e) {
+      console.error("Failed to add kubeconfig by path:", e);
+    }
   }, []);
 
   const switchCluster = useCallback((cid) => {
@@ -345,6 +374,13 @@ export default function KubeClient() {
     [openResourceView],
   );
 
+  useHotkeys("?, mod+/", () => setShortcutsOpen((v) => !v), { preventDefault: true, enableOnFormTags: true });
+  useHotkeys("mod+w", (e) => {
+    if (nav.activeTab) {
+      closeTab(nav.activeTab, e);
+    }
+  }, { preventDefault: true }, [nav.activeTab, closeTab]);
+
   useEffect(() => {
     if (cmdOpen) cmdRef.current?.focus();
   }, [cmdOpen]);
@@ -439,6 +475,7 @@ export default function KubeClient() {
           }
           namespaces={ns}
           onRefresh={() => fetchResource(rt, cid)}
+          clusterId={cid}
         />
       );
     }
@@ -461,6 +498,7 @@ export default function KubeClient() {
           setNamespace={(v) => setTF(activeClusterId, { namespace: v })}
           namespaces={ns}
           onRefresh={() => fetchResource(rt)}
+          clusterId={activeClusterId}
         />
       );
     }
@@ -491,6 +529,7 @@ export default function KubeClient() {
           setCmdQuery("");
         }}
       />
+      <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       <TopBar
         clusters={clusters}
@@ -511,6 +550,7 @@ export default function KubeClient() {
           loading={loading}
           onOpenResource={openResourceView}
           onAddCluster={handleAddCluster}
+          onAddKubeconfigByPath={handleAddKubeconfigByPath}
         />
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -518,7 +558,7 @@ export default function KubeClient() {
         </div>
       </div>
 
-      <StatusBar activeCluster={activeCluster} connected={connected} version="v0.1.0" />
+      <StatusBar activeCluster={activeCluster} connected={connected} version="v0.1.0" kubeconfigPaths={kubeconfigPaths} onAddCluster={handleAddCluster} />
     </div>
   );
 }

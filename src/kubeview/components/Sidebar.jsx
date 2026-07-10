@@ -1,10 +1,26 @@
-import { Plus } from "lucide-react";
+import { useState } from "react";
+import { Plus, FileInput } from "lucide-react";
 import { RESOURCE_TYPES } from "../constants";
 import { mono } from "../theme";
 import { PortForwardPanel } from "./PortForwardPanel";
 
-export function Sidebar({ clusterState, activeCluster, data, loading, onOpenResource, onAddCluster }) {
+export function Sidebar({ clusterState, activeCluster, data, loading, onOpenResource, onAddCluster, onAddKubeconfigByPath }) {
   const clustersColor = activeCluster?.color || "#39ff8a";
+  const [manualPath, setManualPath] = useState("");
+  const [showManualInput, setShowManualInput] = useState(false);
+
+  const handleSubmitManualPath = async () => {
+    const trimmed = manualPath.trim();
+    if (!trimmed) return;
+    try {
+      await onAddKubeconfigByPath(trimmed);
+      setManualPath("");
+      setShowManualInput(false);
+    } catch (e) {
+      console.error("Failed to add kubeconfig by path:", e);
+    }
+  };
+
   return (
     <div
       style={{
@@ -84,30 +100,124 @@ export function Sidebar({ clusterState, activeCluster, data, loading, onOpenReso
 
       <PortForwardPanel clusterId={activeCluster?.id} />
 
-      <button
-        type="button"
-        onClick={onAddCluster}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          background: "none",
-          border: "none",
-          borderTop: "1px solid #080e18",
-          color: "#4a7a8a",
-          padding: "8px 10px",
-          cursor: "pointer",
-          ...mono,
-          fontSize: "0.71rem",
-          width: "100%",
-          textAlign: "left",
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = "#060c14"; e.currentTarget.style.color = "#bdd"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "#4a7a8a"; }}
-      >
-        <Plus size={14} />
-        Add Cluster
-      </button>
+      <div style={{ borderTop: "1px solid #080e18" }}>
+        {showManualInput ? (
+          <div style={{ padding: "6px 8px" }}>
+            <input
+              type="text"
+              value={manualPath}
+              onChange={(e) => setManualPath(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSubmitManualPath();
+                if (e.key === "Escape") {
+                  setShowManualInput(false);
+                  setManualPath("");
+                }
+              }}
+              placeholder="/path/to/kubeconfig"
+              autoFocus
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                background: "#080e18",
+                border: "1px solid #0e1f2e",
+                borderRadius: 4,
+                color: "#7dd3fc",
+                padding: "4px 6px",
+                fontFamily: "inherit",
+                fontSize: "0.62rem",
+                outline: "none",
+                marginBottom: 4,
+              }}
+            />
+            <div style={{ display: "flex", gap: 4 }}>
+              <button
+                type="button"
+                onClick={handleSubmitManualPath}
+                style={{
+                  flex: 1,
+                  background: "#0e1f2e",
+                  border: "1px solid #1a3a4a",
+                  borderRadius: 4,
+                  color: "#39ff8a",
+                  cursor: "pointer",
+                  padding: "3px 6px",
+                  fontSize: "0.6rem",
+                  ...mono,
+                }}
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowManualInput(false); setManualPath(""); }}
+                style={{
+                  background: "none",
+                  border: "1px solid #1a2030",
+                  borderRadius: 4,
+                  color: "#4a7a8a",
+                  cursor: "pointer",
+                  padding: "3px 6px",
+                  fontSize: "0.6rem",
+                  ...mono,
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={onAddCluster}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: "none",
+                border: "none",
+                borderBottom: "1px solid #080e18",
+                color: "#4a7a8a",
+                padding: "8px 10px",
+                cursor: "pointer",
+                ...mono,
+                fontSize: "0.71rem",
+                width: "100%",
+                textAlign: "left",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#060c14"; e.currentTarget.style.color = "#bdd"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "#4a7a8a"; }}
+            >
+              <Plus size={14} />
+              Add Cluster
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowManualInput(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: "none",
+                border: "none",
+                color: "#1e3a52",
+                padding: "6px 10px",
+                cursor: "pointer",
+                ...mono,
+                fontSize: "0.65rem",
+                width: "100%",
+                textAlign: "left",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#060c14"; e.currentTarget.style.color = "#4a7a8a"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "#1e3a52"; }}
+            >
+              <FileInput size={12} />
+              Type path...
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

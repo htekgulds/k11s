@@ -1,14 +1,33 @@
-import { Hexagon, AlertTriangle, Plus } from "lucide-react";
+import { Hexagon, AlertTriangle, Plus, FileInput } from "lucide-react";
 import { RESOURCE_TYPES } from "../constants";
 import { ENV_STYLE, PROVIDER_ICON, mono } from "../theme";
+import { useState } from "react";
 
 export function ClustersTab({
   clusters,
   activeClusterId,
   allClusterData,
+  kubeconfigPaths,
   onSwitch,
   onOpenResource,
+  onAddCluster,
+  onRemoveKubeconfigPath,
+  onAddKubeconfigByPath,
 }) {
+  const [manualPath, setManualPath] = useState("");
+  const [showManualInput, setShowManualInput] = useState(false);
+
+  const handleSubmitManualPath = async () => {
+    const trimmed = manualPath.trim();
+    if (!trimmed) return;
+    try {
+      await onAddKubeconfigByPath(trimmed);
+      setManualPath("");
+      setShowManualInput(false);
+    } catch (e) {
+      console.error("Failed to add kubeconfig path:", e);
+    }
+  };
   return (
     <div style={{ height: "100%", overflowY: "auto", padding: "20px 24px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
@@ -324,6 +343,7 @@ export function ClustersTab({
             cursor: "pointer",
             minHeight: 200,
           }}
+          onClick={onAddCluster}
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = "#1e3a52";
           }}
@@ -338,6 +358,128 @@ export function ClustersTab({
           </span>
         </div>
       </div>
+      {kubeconfigPaths && kubeconfigPaths.length > 0 && (
+        <div
+          style={{
+            marginTop: 20,
+            padding: "12px 14px",
+            background: "#050910",
+            borderTop: "1px solid #0a1018",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "0.59rem",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "#1e3a52",
+              ...mono,
+              marginBottom: 8,
+            }}
+          >
+            Loaded kubeconfig files ({kubeconfigPaths.length})
+          </div>
+          {kubeconfigPaths.map((p) => (
+            <div
+              key={p}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                marginBottom: 4,
+                fontSize: "0.65rem",
+                color: "#2d4a6a",
+                ...mono,
+              }}
+            >
+              <span style={{ color: "#39ff8a", flexShrink: 0 }}>◉</span>
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {p}
+              </span>
+              <button
+                type="button"
+                onClick={() => onRemoveKubeconfigPath(p)}
+                style={{
+                  background: "none",
+                  border: "1px solid #1a2030",
+                  borderRadius: 3,
+                  color: "#ff4d4d",
+                  cursor: "pointer",
+                  padding: "1px 6px",
+                  fontSize: "0.62rem",
+                  ...mono,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            {showManualInput ? (
+              <>
+                <input
+                  type="text"
+                  value={manualPath}
+                  onChange={(e) => setManualPath(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSubmitManualPath();
+                    if (e.key === "Escape") {
+                      setShowManualInput(false);
+                      setManualPath("");
+                    }
+                  }}
+                  placeholder="/path/to/kubeconfig.yaml"
+                  autoFocus
+                  style={{
+                    flex: 1,
+                    background: "#080e18",
+                    border: "1px solid #0e1f2e",
+                    borderRadius: 4,
+                    color: "#7dd3fc",
+                    padding: "4px 8px",
+                    fontFamily: "inherit",
+                    fontSize: "0.65rem",
+                    outline: "none",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSubmitManualPath}
+                  style={{
+                    background: "#0e1f2e",
+                    border: "1px solid #1a3a4a",
+                    borderRadius: 4,
+                    color: "#39ff8a",
+                    cursor: "pointer",
+                    padding: "4px 10px",
+                    fontSize: "0.62rem",
+                    ...mono,
+                  }}
+                >
+                  Add
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowManualInput(true)}
+                style={{
+                  background: "none",
+                  border: "1px dashed #1a2030",
+                  borderRadius: 4,
+                  color: "#1e3a52",
+                  cursor: "pointer",
+                  padding: "4px 10px",
+                  fontSize: "0.62rem",
+                  ...mono,
+                }}
+              >
+                + Type a path
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -28,6 +28,6 @@ k8s-openapi = { version = "0.24", features = ["v1_31"] }
 chrono = "0.4"
 serde_yaml = "0.9"
 futures = "0.3"
-tokio = { version = "1", features = ["sync", "macros", "rt", "net"] }
+tokio = { version = "1", features = ["sync", "macros", "rt", "net", "process"] }
 tokio-util = "0.7"
 

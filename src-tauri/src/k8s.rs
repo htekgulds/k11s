@@ -1,13 +1,16 @@
-use k8s_openapi::api::apps::v1::{Deployment, StatefulSet};
+use k8s_openapi::api::apps::v1::{ControllerRevision, Deployment, StatefulSet};
 use k8s_openapi::api::core::v1::{
     ConfigMap, Event, Node, PersistentVolumeClaim, Pod, Secret, Service,
 };
 use k8s_openapi::api::networking::v1::Ingress;
 use kube::config::KubeConfigOptions;
 use kube::{api::ListParams, Api, Client, Config};
+use kube::api::{DeleteParams, Patch, PatchParams};
 use serde::Serialize;
+use serde_json::json;
 use std::collections::HashMap;
 use tokio_util::sync::CancellationToken;
+use tauri::Emitter;
 
 use crate::clusters;
 
@@ -104,7 +107,7 @@ fn first_container_image(pod: &Pod) -> String {
         .unwrap_or_default()
 }
 
-async fn pods_per_node(client: &Client) -> HashMap<String, usize> {
+pub(crate) async fn pods_per_node(client: &Client) -> HashMap<String, usize> {
     let pods = Api::<Pod>::all(client.clone())
         .list(&ListParams::default())
         .await
@@ -243,6 +246,78 @@ pub struct YamlResponse {
 #[derive(Debug, Serialize)]
 pub struct EventsResponse {
     pub events: Vec<EventInfo>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DescribeResponse {
+    pub describe: String,
+}
+
+fn format_describe(value: &serde_json::Value, indent: usize) -> String {
+    let pad = " ".repeat(indent);
+    let pad2 = " ".repeat(indent + 2);
+    let mut out = String::new();
+
+    match value {
+        serde_json::Value::Object(map) => {
+            for (key, val) in map {
+                let label = key.replace('_', " ");
+                match val {
+                    serde_json::Value::Null => {}
+                    serde_json::Value::String(s) => {
+                        if !s.is_empty() && s != "<nil>" {
+                            out.push_str(&format!("{pad}{label:<25} {s}\n"));
+                        }
+                    }
+                    serde_json::Value::Number(n) => {
+                        out.push_str(&format!("{pad}{label:<25} {n}\n"));
+                    }
+                    serde_json::Value::Bool(b) => {
+                        out.push_str(&format!("{pad}{label:<25} {b}\n"));
+                    }
+                    serde_json::Value::Array(arr) => {
+                        if !arr.is_empty() {
+                            let flat: Vec<String> = arr
+                                .iter()
+                                .filter_map(|v| match v {
+                                    serde_json::Value::String(s) => Some(s.clone()),
+                                    serde_json::Value::Object(o) => {
+                                        let inner = format_describe(v, indent + 4);
+                                        if inner.trim().is_empty() {
+                                            None
+                                        } else {
+                                            Some(inner.trim().to_string())
+                                        }
+                                    }
+                                    _ => Some(format!("{v}")),
+                                })
+                                .collect();
+                            if !flat.is_empty() && flat.iter().all(|s| s.len() < 60) {
+                                out.push_str(&format!("{pad}{label:<25} {}\n", flat.join(", ")));
+                            } else {
+                                out.push_str(&format!("{pad}{label}:\n"));
+                                for item in &flat {
+                                    for line in item.lines() {
+                                        out.push_str(&format!("{pad2}- {line}\n"));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    serde_json::Value::Object(_) => {
+                        let inner = format_describe(val, indent + 2);
+                        if !inner.trim().is_empty() {
+                            out.push_str(&format!("{pad}{label}:\n{inner}"));
+                        }
+                    }
+                }
+            }
+        }
+        _ => {
+            out.push_str(&format!("{pad}{value}\n"));
+        }
+    }
+    out
 }
 
 pub fn node_to_info(node: Node, pod_count: usize) -> NodeInfo {
@@ -668,11 +743,13 @@ pub async fn get_pod_logs(
     context: Option<String>,
     name: String,
     namespace: String,
+    previous: bool,
+    container: Option<String>,
 ) -> Result<PodLogsResponse, String> {
     let client = make_client(context).await?;
     let pods: Api<Pod> = Api::namespaced(client, &namespace);
     let logs = pods
-        .logs(&name, &kube::api::LogParams::default())
+        .logs(&name, &kube::api::LogParams { previous, container, ..Default::default() })
         .await
         .map_err(|e| format!("Failed to get logs: {e}"))?;
     Ok(PodLogsResponse { logs })
@@ -780,20 +857,21 @@ pub async fn get_events(
     namespace: Option<String>,
 ) -> Result<EventsResponse, String> {
     let client = make_client(context).await?;
+
+    let field_sel = match &namespace {
+        Some(ns) => format!("involvedObject.name={},involvedObject.namespace={}", name, ns),
+        None => format!("involvedObject.name={}", name),
+    };
+    let lp = ListParams::default().fields(&field_sel);
+
     let events = Api::<Event>::all(client)
-        .list(&ListParams::default())
+        .list(&lp)
         .await
         .map_err(|e| format!("Failed to list events: {e}"))?;
 
     let filtered: Vec<EventInfo> = events
         .items
         .into_iter()
-        .filter(|ev| {
-            let obj = &ev.involved_object;
-            obj.name.as_deref() == Some(name.as_str())
-                && (namespace.is_none()
-                    || obj.namespace.as_deref() == namespace.as_deref())
-        })
         .map(|ev| {
             let from = ev
                 .source
@@ -813,6 +891,228 @@ pub async fn get_events(
     Ok(EventsResponse { events: filtered })
 }
 
+
+
+/// Apply YAML to the cluster using kubectl apply via stdin.
+pub async fn apply_yaml(
+    context: Option<String>,
+    yaml_content: String,
+) -> Result<String, String> {
+    use tokio::io::AsyncWriteExt;
+
+    let mut cmd = tokio::process::Command::new("kubectl");
+    if let Some(ref ctx) = context {
+        cmd.arg("--context").arg(ctx);
+    }
+    cmd.arg("apply").arg("-f").arg("-");
+
+    cmd.stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn kubectl apply: {e}"))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(yaml_content.as_bytes())
+            .await
+            .map_err(|e| format!("Failed to write YAML to stdin: {e}"))?;
+        // Drop stdin to close it
+        drop(stdin);
+    }
+
+    let output = child
+        .wait_with_output()
+        .await
+        .map_err(|e| format!("Failed to wait for kubectl apply: {e}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    if output.status.success() {
+        Ok(stdout)
+    } else {
+        Err(format!("kubectl apply failed: {stderr}{stdout}"))
+    }
+}
+
+pub async fn describe_resource(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: Option<String>,
+) -> Result<DescribeResponse, String> {
+    let client = make_client(context).await?;
+
+    let value: serde_json::Value = match kind.as_str() {
+        "pods" | "Pod" => {
+            let ns = namespace.ok_or("namespace required for pods")?;
+            let obj = Api::<Pod>::namespaced(client, &ns)
+                .get(&name)
+                .await
+                .map_err(|e| format!("Failed to get pod: {e}"))?;
+            serde_json::to_value(&obj).map_err(|e| format!("Serialization error: {e}"))?
+        }
+        "deployments" | "Deployment" => {
+            let ns = namespace.ok_or("namespace required")?;
+            let obj = Api::<Deployment>::namespaced(client, &ns)
+                .get(&name)
+                .await
+                .map_err(|e| format!("Failed to get deployment: {e}"))?;
+            serde_json::to_value(&obj).map_err(|e| format!("Serialization error: {e}"))?
+        }
+        "statefulsets" | "StatefulSet" => {
+            let ns = namespace.ok_or("namespace required")?;
+            let obj = Api::<StatefulSet>::namespaced(client, &ns)
+                .get(&name)
+                .await
+                .map_err(|e| format!("Failed to get statefulset: {e}"))?;
+            serde_json::to_value(&obj).map_err(|e| format!("Serialization error: {e}"))?
+        }
+        "services" | "Service" => {
+            let ns = namespace.ok_or("namespace required")?;
+            let obj = Api::<Service>::namespaced(client, &ns)
+                .get(&name)
+                .await
+                .map_err(|e| format!("Failed to get service: {e}"))?;
+            serde_json::to_value(&obj).map_err(|e| format!("Serialization error: {e}"))?
+        }
+        "nodes" | "Node" => {
+            let obj = Api::<Node>::all(client)
+                .get(&name)
+                .await
+                .map_err(|e| format!("Failed to get node: {e}"))?;
+            serde_json::to_value(&obj).map_err(|e| format!("Serialization error: {e}"))?
+        }
+        "configmaps" | "ConfigMap" => {
+            let ns = namespace.ok_or("namespace required")?;
+            let obj = Api::<ConfigMap>::namespaced(client, &ns)
+                .get(&name)
+                .await
+                .map_err(|e| format!("Failed to get configmap: {e}"))?;
+            serde_json::to_value(&obj).map_err(|e| format!("Serialization error: {e}"))?
+        }
+        "secrets" | "Secret" => {
+            let ns = namespace.ok_or("namespace required")?;
+            let obj = Api::<Secret>::namespaced(client, &ns)
+                .get(&name)
+                .await
+                .map_err(|e| format!("Failed to get secret: {e}"))?;
+            serde_json::to_value(&obj).map_err(|e| format!("Serialization error: {e}"))?
+        }
+        "ingresses" | "Ingress" => {
+            let ns = namespace.ok_or("namespace required")?;
+            let obj = Api::<Ingress>::namespaced(client, &ns)
+                .get(&name)
+                .await
+                .map_err(|e| format!("Failed to get ingress: {e}"))?;
+            serde_json::to_value(&obj).map_err(|e| format!("Serialization error: {e}"))?
+        }
+        "pvcs" | "PersistentVolumeClaim" => {
+            let ns = namespace.ok_or("namespace required")?;
+            let obj = Api::<PersistentVolumeClaim>::namespaced(client, &ns)
+                .get(&name)
+                .await
+                .map_err(|e| format!("Failed to get pvc: {e}"))?;
+            serde_json::to_value(&obj).map_err(|e| format!("Serialization error: {e}"))?
+        }
+        _ => return Err(format!("Unsupported resource kind: {kind}")),
+    };
+
+    let describe = format_describe(&value, 0);
+    Ok(DescribeResponse { describe })
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DeleteResponse {
+    pub success: bool,
+    pub message: String,
+}
+
+pub async fn delete_resource(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: String,
+    grace_period_seconds: Option<i64>,
+    force: bool,
+) -> Result<DeleteResponse, String> {
+    let client = make_client(context).await?;
+
+    let mut delete_params = DeleteParams::default();
+    if let Some(gp) = grace_period_seconds {
+        delete_params.grace_period_seconds = Some(gp as u32);
+    }
+    if force {
+        delete_params.grace_period_seconds = Some(0);
+        delete_params.propagation_policy =
+            Some(kube::api::PropagationPolicy::Background);
+    }
+
+    match kind.as_str() {
+        "pods" => {
+            let api: Api<Pod> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete pod: {e}"))?;
+        }
+        "deployments" => {
+            let api: Api<Deployment> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete deployment: {e}"))?;
+        }
+        "statefulsets" => {
+            let api: Api<StatefulSet> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete statefulset: {e}"))?;
+        }
+        "services" => {
+            let api: Api<Service> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete service: {e}"))?;
+        }
+        "ingresses" => {
+            let api: Api<Ingress> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete ingress: {e}"))?;
+        }
+        "configmaps" => {
+            let api: Api<ConfigMap> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete configmap: {e}"))?;
+        }
+        "secrets" => {
+            let api: Api<Secret> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete secret: {e}"))?;
+        }
+        "pvcs" => {
+            let api: Api<PersistentVolumeClaim> = Api::namespaced(client, &namespace);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete pvc: {e}"))?;
+        }
+        "nodes" => {
+            let api: Api<Node> = Api::all(client);
+            api.delete(&name, &delete_params)
+                .await
+                .map_err(|e| format!("Failed to delete node: {e}"))?;
+        }
+        _ => return Err(format!("Unsupported resource kind: {kind}")),
+    }
+
+    Ok(DeleteResponse {
+        success: true,
+        message: format!("{kind}/{name} deleted"),
+    })
+}
+
 pub async fn cluster_health(context: Option<String>) -> Result<bool, String> {
     let client = make_client(context).await?;
     client
@@ -821,6 +1121,8 @@ pub async fn cluster_health(context: Option<String>) -> Result<bool, String> {
         .map(|_| true)
         .map_err(|e| format!("API unreachable: {e}"))
 }
+
+// ── Port Forward ──────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PortForwardInfo {
@@ -895,4 +1197,439 @@ pub async fn start_port_forward(
     });
 
     Ok(info)
+}
+
+// ── Shell Exec ──────────────────────────────────────────────────────────────
+
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::OnceLock;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::process::Command;
+
+struct ShellSession {
+    stdin: tokio::process::ChildStdin,
+    child: tokio::process::Child,
+}
+
+static NEXT_SHELL_ID: AtomicU64 = AtomicU64::new(1);
+
+fn shell_sessions() -> &'static tokio::sync::Mutex<HashMap<String, ShellSession>> {
+    static SESSIONS: OnceLock<tokio::sync::Mutex<HashMap<String, ShellSession>>> =
+        OnceLock::new();
+    SESSIONS.get_or_init(|| tokio::sync::Mutex::new(HashMap::new()))
+}
+
+/// Start an interactive shell session in a pod container.
+/// Returns a session_id string used for subsequent stdin writes and cleanup.
+pub async fn exec_pod_shell(
+    context: Option<String>,
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    let session_id = format!("shell-{}", NEXT_SHELL_ID.fetch_add(1, Ordering::Relaxed));
+
+    // Build `kubectl exec -i <pod> -n <ns> [-c <container>] -- sh`
+    let mut cmd = Command::new("kubectl");
+    if let Some(ref ctx) = context {
+        cmd.arg("--context").arg(ctx);
+    }
+    cmd.arg("exec")
+        .arg("-i")
+        .arg(&pod)
+        .arg("-n")
+        .arg(&namespace);
+    if let Some(ref c) = container {
+        cmd.arg("-c").arg(c);
+    }
+    // Try bash first, fall back to sh
+    cmd.arg("--")
+        .args(["sh", "-c", "if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi"]);
+
+    cmd.stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn kubectl exec: {e}"))?;
+
+    let stdin = child.stdin.take().ok_or("Failed to capture stdin")?;
+    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+    let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
+
+    // Spawn stdout reader ─ emits "shell-output" events (type: "stdout")
+    let sid_out = session_id.clone();
+    let ah_out = app_handle.clone();
+    tokio::spawn(async move {
+        let reader = BufReader::new(stdout);
+        let mut lines = reader.lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            let _ = ah_out.emit(
+                "shell-output",
+                serde_json::json!({
+                    "session_id": sid_out,
+                    "type": "stdout",
+                    "data": line,
+                }),
+            );
+        }
+        // stdout closed → process exited
+        let _ = ah_out.emit(
+            "shell-output",
+            serde_json::json!({
+                "session_id": sid_out,
+                "type": "exit",
+                "data": null,
+            }),
+        );
+    });
+
+    // Spawn stderr reader ─ emits "shell-output" events (type: "stderr")
+    let sid_err = session_id.clone();
+    let ah_err = app_handle.clone();
+    tokio::spawn(async move {
+        let reader = BufReader::new(stderr);
+        let mut lines = reader.lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            let _ = ah_err.emit(
+                "shell-output",
+                serde_json::json!({
+                    "session_id": sid_err,
+                    "type": "stderr",
+                    "data": line,
+                }),
+            );
+        }
+    });
+
+    // Register session
+    let session = ShellSession { stdin, child };
+    shell_sessions()
+        .lock()
+        .await
+        .insert(session_id.clone(), session);
+
+    Ok(session_id)
+}
+
+/// Write data (e.g. a command line) to the shell's stdin.
+pub async fn exec_pod_stdin(session_id: String, data: String) -> Result<(), String> {
+    let mut sessions = shell_sessions().lock().await;
+    let session = sessions
+        .get_mut(&session_id)
+        .ok_or_else(|| "Shell session not found".to_string())?;
+    session
+        .stdin
+        .write_all(data.as_bytes())
+        .await
+        .map_err(|e| format!("Failed to write stdin: {e}"))?;
+    session
+        .stdin
+        .flush()
+        .await
+        .map_err(|e| format!("Failed to flush stdin: {e}"))?;
+    Ok(())
+}
+
+/// Terminate a shell session by closing its stdin and killing the process.
+pub async fn exec_pod_stop(session_id: String) -> Result<(), String> {
+    let mut sessions = shell_sessions().lock().await;
+    if let Some(mut session) = sessions.remove(&session_id) {
+        // Closing stdin signals EOF to the shell process
+        let _ = session.stdin.shutdown().await;
+        // Kill the child process
+        let _ = session.child.start_kill();
+        // Reap in background
+        tokio::spawn(async move {
+            let _ = session.child.wait().await;
+        });
+        Ok(())
+    } else {
+        Err("Session not found".to_string())
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct LogStreamEventPayload {
+    pub name: String,
+    pub namespace: String,
+    pub line: String,
+    pub error: Option<String>,
+}
+
+pub async fn stream_pod_logs(
+    app: tauri::AppHandle,
+    context: Option<String>,
+    name: String,
+    namespace: String,
+    previous: bool,
+    container: Option<String>,
+    cancel: tokio_util::sync::CancellationToken,
+) {
+    use futures::AsyncBufReadExt;
+
+    let client = match make_client(context).await {
+        Ok(c) => c,
+        Err(e) => {
+            let _ = app.emit(
+                "log-line",
+                LogStreamEventPayload {
+                    name,
+                    namespace,
+                    line: String::new(),
+                    error: Some(e),
+                },
+            );
+            return;
+        }
+    };
+
+    let pods: Api<Pod> = Api::namespaced(client, &namespace);
+    let lp = kube::api::LogParams {
+        follow: true,
+        previous,
+        container: Some(container.clone().unwrap_or_default()),
+        ..Default::default()
+    };
+
+    let mut stream = match pods.log_stream(&name, &lp).await {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = app.emit(
+                "log-line",
+                LogStreamEventPayload {
+                    name,
+                    namespace,
+                    line: String::new(),
+                    error: Some(format!("Failed to start log stream: {e}")),
+                },
+            );
+            return;
+        }
+    };
+
+    let mut line = String::new();
+    loop {
+        tokio::select! {
+            _ = cancel.cancelled() => break,
+            result = stream.read_line(&mut line) => {
+                match result {
+                    Ok(0) => break,
+                    Ok(_) => {
+                        let trimmed = if line.ends_with('\n') {
+                            line[..line.len()-1].to_string()
+                        } else {
+                            line.clone()
+                        };
+                        let _ = app.emit("log-line", LogStreamEventPayload {
+                            name: name.clone(),
+                            namespace: namespace.clone(),
+                            line: trimmed,
+                            error: None,
+                        });
+                        line.clear();
+                    }
+                    Err(e) => {
+                        let _ = app.emit("log-line", LogStreamEventPayload {
+                            name,
+                            namespace,
+                            line: String::new(),
+                            error: Some(format!("Stream error: {e}")),
+                        });
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct RolloutResponse {
+    pub success: bool,
+    pub message: String,
+}
+
+/// Run a rollout operation using the kube-rs client.
+/// action: "restart", "undo", "history"
+pub async fn rollout_action(
+    context: Option<String>,
+    kind: String,
+    name: String,
+    namespace: String,
+    action: String,
+) -> Result<RolloutResponse, String> {
+    let client = make_client(context).await?;
+
+    match action.as_str() {
+        "restart" => rollout_restart(&client, &kind, &name, &namespace).await,
+        "history" => rollout_history(&client, &kind, &name, &namespace).await,
+        "undo" => rollout_undo(&client, &kind, &name, &namespace).await,
+        _ => Err(format!("Unknown rollout action: {action}. Use restart, history, or undo")),
+    }
+}
+
+async fn rollout_restart(
+    client: &Client,
+    kind: &str,
+    name: &str,
+    namespace: &str,
+) -> Result<RolloutResponse, String> {
+    let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let patch = json!({
+        "spec": {
+            "template": {
+                "metadata": {
+                    "annotations": {
+                        "kubectl.kubernetes.io/restartedAt": now
+                    }
+                }
+            }
+        }
+    });
+    let params = PatchParams::default();
+
+    match kind {
+        "deployment" => {
+            let api: Api<Deployment> = Api::namespaced(client.clone(), namespace);
+            api.patch(name, &params, &Patch::Merge(&patch))
+                .await
+                .map_err(|e| format!("rollout restart failed: {e}"))?;
+        }
+        "statefulset" => {
+            let api: Api<StatefulSet> = Api::namespaced(client.clone(), namespace);
+            api.patch(name, &params, &Patch::Merge(&patch))
+                .await
+                .map_err(|e| format!("rollout restart failed: {e}"))?;
+        }
+        _ => return Err(format!("Unsupported kind for rollout: {kind}")),
+    }
+
+    Ok(RolloutResponse {
+        success: true,
+        message: format!("{kind}/{name} restarted"),
+    })
+}
+
+async fn rollout_history(
+    client: &Client,
+    kind: &str,
+    name: &str,
+    namespace: &str,
+) -> Result<RolloutResponse, String> {
+    let api: Api<ControllerRevision> = Api::namespaced(client.clone(), namespace);
+    let list = api
+        .list(&ListParams::default())
+        .await
+        .map_err(|e| format!("Failed to list revisions: {e}"))?;
+
+    let mut revisions: Vec<&ControllerRevision> = list
+        .items
+        .iter()
+        .filter(|rev| {
+            rev.metadata
+                .owner_references
+                .as_ref()
+                .map_or(false, |refs| refs.iter().any(|r| r.name == name))
+        })
+        .collect();
+
+    revisions.sort_by_key(|r| r.revision);
+
+    if revisions.is_empty() {
+        return Ok(RolloutResponse {
+            success: true,
+            message: format!("No rollout history found for {kind}/{name}"),
+        });
+    }
+
+    let mut output = format!("{:<9} {}\n", "REVISION", "CHANGE-CAUSE");
+    for rev in &revisions {
+        let change_cause = rev
+            .metadata
+            .annotations
+            .as_ref()
+            .and_then(|a| a.get("kubernetes.io/change-cause").cloned())
+            .unwrap_or_default();
+        output.push_str(&format!("{:<9} {}\n", rev.revision, change_cause));
+    }
+
+    Ok(RolloutResponse {
+        success: true,
+        message: output,
+    })
+}
+
+async fn rollout_undo(
+    client: &Client,
+    kind: &str,
+    name: &str,
+    namespace: &str,
+) -> Result<RolloutResponse, String> {
+    let rev_api: Api<ControllerRevision> = Api::namespaced(client.clone(), namespace);
+    let list = rev_api
+        .list(&ListParams::default())
+        .await
+        .map_err(|e| format!("Failed to list revisions: {e}"))?;
+
+    let mut revisions: Vec<&ControllerRevision> = list
+        .items
+        .iter()
+        .filter(|rev| {
+            rev.metadata
+                .owner_references
+                .as_ref()
+                .map_or(false, |refs| refs.iter().any(|r| r.name == name))
+        })
+        .collect();
+
+    revisions.sort_by_key(|r| r.revision);
+
+    if revisions.len() < 2 {
+        return Err("No previous revision to roll back to".to_string());
+    }
+
+    // Previous revision is second-to-last
+    let target = revisions[revisions.len() - 2];
+    let target_rev = target.revision;
+
+    let data = target
+        .data
+        .as_ref()
+        .map(|d| d.0.clone())
+        .ok_or_else(|| "Revision data is empty".to_string())?;
+
+    // Extract spec.template from the historical revision's full resource data
+    let template = data
+        .get("spec")
+        .and_then(|s| s.get("template"))
+        .ok_or_else(|| "Could not find spec.template in revision data".to_string())?;
+
+    let patch = json!({
+        "spec": {
+            "template": template
+        }
+    });
+    let params = PatchParams::default();
+
+    match kind {
+        "deployment" => {
+            let api: Api<Deployment> = Api::namespaced(client.clone(), namespace);
+            api.patch(name, &params, &Patch::Merge(&patch))
+                .await
+                .map_err(|e| format!("rollout undo failed: {e}"))?;
+        }
+        "statefulset" => {
+            let api: Api<StatefulSet> = Api::namespaced(client.clone(), namespace);
+            api.patch(name, &params, &Patch::Merge(&patch))
+                .await
+                .map_err(|e| format!("rollout undo failed: {e}"))?;
+        }
+        _ => return Err(format!("Unsupported kind for rollout: {kind}")),
+    }
+
+    Ok(RolloutResponse {
+        success: true,
+        message: format!("Rolled back {kind}/{name} to revision {target_rev}"),
+    })
 }
