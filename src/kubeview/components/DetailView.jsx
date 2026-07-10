@@ -2,6 +2,7 @@ import { useState } from "react";
 import { buildGraph, getRelated } from "../utils/graph";
 import { InfoTab } from "./InfoTab";
 import { LogsTab } from "./LogsTab";
+import { ShellTab } from "./ShellTab";
 import { YamlTab } from "./YamlTab";
 import { EventsTab } from "./EventsTab";
 import { DescribeTab } from "./DescribeTab";
@@ -32,6 +33,7 @@ export function DetailView({ obj, type, allData, clusterId, onNavigate }) {
       <div style={{ flex: 1, overflow: "hidden", display: "flex", minHeight: 0 }}>
         {subTab === "info" && <InfoTab obj={obj} type={type} related={related} onNavigate={onNavigate} />}
         {subTab === "logs" && <LogsTab obj={obj} clusterId={clusterId} />}
+        {subTab === "shell" && <ShellTab obj={obj} clusterId={clusterId} />}
         {subTab === "yaml" && <YamlTab obj={obj} type={type} clusterId={clusterId} />}
         {subTab === "events" && <EventsTab obj={obj} clusterId={clusterId} />}
         {subTab === "describe" && <DescribeTab obj={obj} clusterId={clusterId} />}

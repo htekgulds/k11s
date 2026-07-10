@@ -189,6 +189,29 @@ async fn stop_watchers(
     Ok(())
 }
 
+// ── Shell Exec ──────────────────────────────────────────────────────────────
+
+#[tauri::command]
+async fn exec_pod_shell(
+    context: Option<String>,
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    k8s::exec_pod_shell(context, namespace, pod, container, app_handle).await
+}
+
+#[tauri::command]
+async fn exec_pod_stdin(session_id: String, data: String) -> Result<(), String> {
+    k8s::exec_pod_stdin(session_id, data).await
+}
+
+#[tauri::command]
+async fn exec_pod_stop(session_id: String) -> Result<(), String> {
+    k8s::exec_pod_stop(session_id).await
+}
+
 #[tauri::command]
 async fn start_log_stream(
     app_handle: tauri::AppHandle,
@@ -272,6 +295,9 @@ pub fn run() {
             stop_watchers,
             add_kubeconfig_files,
             add_kubeconfig_folder,
+            exec_pod_shell,
+            exec_pod_stdin,
+            exec_pod_stop,
             start_log_stream,
             stop_log_stream,
             get_kubeconfig_paths,
