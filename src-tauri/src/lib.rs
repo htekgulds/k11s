@@ -2,6 +2,22 @@ mod clusters;
 mod k8s;
 mod watchers;
 
+use std::collections::HashMap;
+use std::sync::Mutex;
+use tokio_util::sync::CancellationToken;
+
+struct LogStreamManager {
+    streams: Mutex<HashMap<String, CancellationToken>>,
+}
+
+impl LogStreamManager {
+    fn new() -> Self {
+        Self {
+            streams: Mutex::new(HashMap::new()),
+        }
+    }
+}
+
 
 
 #[tauri::command]
@@ -66,8 +82,10 @@ async fn get_pod_logs(
     context: Option<String>,
     name: String,
     namespace: String,
+    previous: bool,
+    container: Option<String>,
 ) -> Result<k8s::PodLogsResponse, String> {
-    k8s::get_pod_logs(context, name, namespace).await
+    k8s::get_pod_logs(context, name, namespace, previous, container).await
 }
 
 #[tauri::command]
@@ -172,6 +190,47 @@ async fn stop_watchers(
 }
 
 #[tauri::command]
+async fn start_log_stream(
+    app_handle: tauri::AppHandle,
+    context: Option<String>,
+    name: String,
+    namespace: String,
+    previous: bool,
+    container: Option<String>,
+    state: tauri::State<'_, LogStreamManager>,
+) -> Result<(), String> {
+    let stream_id = format!("{:?}/{}/{}", context, namespace, name);
+    let cancel = CancellationToken::new();
+    state
+        .streams
+        .lock()
+        .unwrap()
+        .insert(stream_id.clone(), cancel.clone());
+
+    tauri::async_runtime::spawn(k8s::stream_pod_logs(
+        app_handle, context, name, namespace, previous, container, cancel,
+    ));
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn stop_log_stream(
+    context: Option<String>,
+    name: String,
+    namespace: String,
+    previous: bool,
+    container: Option<String>,
+    state: tauri::State<'_, LogStreamManager>,
+) -> Result<(), String> {
+    let stream_id = format!("{:?}/{}/{}", context, namespace, name);
+    if let Some(cancel) = state.streams.lock().unwrap().remove(&stream_id) {
+        cancel.cancel();
+    }
+    Ok(())
+}
+
+#[tauri::command]
 async fn rollout_action(
     context: Option<String>,
     kind: String,
@@ -190,6 +249,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(watchers::WatcherManager::new())
+        .manage(LogStreamManager::new())
         .invoke_handler(tauri::generate_handler![
             list_clusters,
             cluster_health,
@@ -212,6 +272,8 @@ pub fn run() {
             stop_watchers,
             add_kubeconfig_files,
             add_kubeconfig_folder,
+            start_log_stream,
+            stop_log_stream,
             get_kubeconfig_paths,
             remove_kubeconfig_path,
             get_default_context,
