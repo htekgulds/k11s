@@ -8,12 +8,13 @@ use k8s_openapi::api::core::v1::{ConfigMap, Node, PersistentVolumeClaim, Pod, Se
 use k8s_openapi::api::networking::v1::Ingress;
 use futures::StreamExt;
 use kube::runtime::watcher;
-use kube::{Api, Client, Resource, ResourceExt};
+use kube::api::Api;
+use kube::Client;
+use kube::Resource;
+use kube::ResourceExt;
 use serde::Serialize;
 use serde_json::Value;
 use tauri::Emitter;
-
-use crate::k8s;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct WatchEventPayload {
@@ -138,7 +139,7 @@ async fn run_watcher(
         Some(context.clone())
     };
 
-    let client = match k8s::make_client(ctx_opt).await {
+    let client = match crate::kube::client::make_client(ctx_opt).await {
         Ok(c) => c,
         Err(e) => {
             emit(
@@ -156,36 +157,36 @@ async fn run_watcher(
 
     match resource_type.as_str() {
         "pods" => watch_type::<Pod, _>(app, context, resource_type, client, cancel, |p| {
-            serde_json::to_value(k8s::pod_to_info(p)).unwrap_or_default()
+            serde_json::to_value(crate::kube::pods::pod_to_info(p)).unwrap_or_default()
         })
         .await,
         "nodes" => watch_nodes(app, context, resource_type, client, cancel).await,
         "deployments" => watch_type::<Deployment, _>(app, context, resource_type, client, cancel, |d| {
-            serde_json::to_value(k8s::deployment_to_info(d)).unwrap_or_default()
+            serde_json::to_value(crate::kube::resources::deployment_to_info(d)).unwrap_or_default()
         })
         .await,
         "statefulsets" => watch_type::<StatefulSet, _>(app, context, resource_type, client, cancel, |s| {
-            serde_json::to_value(k8s::statefulset_to_info(s)).unwrap_or_default()
+            serde_json::to_value(crate::kube::resources::statefulset_to_info(s)).unwrap_or_default()
         })
         .await,
         "services" => watch_type::<Service, _>(app, context, resource_type, client, cancel, |s| {
-            serde_json::to_value(k8s::service_to_info(s)).unwrap_or_default()
+            serde_json::to_value(crate::kube::resources::service_to_info(s)).unwrap_or_default()
         })
         .await,
         "ingresses" => watch_type::<Ingress, _>(app, context, resource_type, client, cancel, |i| {
-            serde_json::to_value(k8s::ingress_to_info(i)).unwrap_or_default()
+            serde_json::to_value(crate::kube::resources::ingress_to_info(i)).unwrap_or_default()
         })
         .await,
         "configmaps" => watch_type::<ConfigMap, _>(app, context, resource_type, client, cancel, |c| {
-            serde_json::to_value(k8s::configmap_to_info(c)).unwrap_or_default()
+            serde_json::to_value(crate::kube::resources::configmap_to_info(c)).unwrap_or_default()
         })
         .await,
         "secrets" => watch_type::<Secret, _>(app, context, resource_type, client, cancel, |s| {
-            serde_json::to_value(k8s::secret_to_info(s)).unwrap_or_default()
+            serde_json::to_value(crate::kube::resources::secret_to_info(s)).unwrap_or_default()
         })
         .await,
         "pvcs" => watch_type::<PersistentVolumeClaim, _>(app, context, resource_type, client, cancel, |p| {
-            serde_json::to_value(k8s::pvc_to_info(p)).unwrap_or_default()
+            serde_json::to_value(crate::kube::resources::pvc_to_info(p)).unwrap_or_default()
         })
         .await,
         other => {
@@ -259,10 +260,10 @@ async fn watch_nodes(
             maybe_event = stream.next() => {
                 match maybe_event {
                     Some(Ok(watcher::Event::Apply(obj))) | Some(Ok(watcher::Event::InitApply(obj))) => {
-                        let counts = k8s::pods_per_node(&client).await;
+                        let counts = crate::kube::nodes::pods_per_node(&client).await;
                         let node_name = obj.metadata.name.clone().unwrap_or_default();
                         let count = counts.get(&node_name).copied().unwrap_or(0);
-                        let v = serde_json::to_value(k8s::node_to_info(obj, count)).unwrap_or_default();
+                        let v = serde_json::to_value(crate::kube::nodes::node_to_info(obj, count)).unwrap_or_default();
                         emit_apply(&app, &context, &resource_type, &v);
                     }
                     Some(Ok(watcher::Event::Delete(obj))) => {
