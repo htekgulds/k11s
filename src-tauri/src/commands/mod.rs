@@ -14,3 +14,4 @@ pub(crate) mod dashboard;
 pub(crate) mod export;
 pub(crate) mod metrics;
 pub(crate) mod discovery;
+pub(crate) mod helm;

@@ -27,6 +27,7 @@ import { StatusBar } from "./features/layout/StatusBar";
 import { DetailView } from "./features/detail-view/DetailView";
 import { ResourceListTab } from "./features/resource-list/ResourceListTab";
 import { Dashboard } from "./features/dashboard/Dashboard";
+import { HelmReleasesTab } from "./features/detail-view/HelmReleasesTab";
 import { DropZoneOverlay } from "./features/yaml-drop/DropZoneOverlay";
 import { YamlPreviewModal } from "./features/yaml-drop/YamlPreviewModal";
 
@@ -436,6 +437,18 @@ export default function KubeClient() {
         <Dashboard
           clusterId={activeClusterId}
           onRefreshResource={(rt) => fetchResource(rt, activeClusterId, resourceLookup)}
+        />
+      );
+    }
+
+    if (nav.activeResource === "helm") {
+      const tf = getTF(activeClusterId);
+      return (
+        <HelmReleasesTab
+          key="helm"
+          data={data.helm || []}
+          loading={loading.helm}
+          filter={tf.filter}
         />
       );
     }

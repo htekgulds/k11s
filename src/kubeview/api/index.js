@@ -24,3 +24,7 @@ export {
 export {
   getPodMetrics,
 } from "./metrics";
+
+export {
+  listHelmReleases,
+} from "./helm";

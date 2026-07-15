@@ -23,6 +23,7 @@ use commands::export::export_to_file;
 use commands::metrics::get_pod_metrics;
 use commands::dashboard::get_cluster_dashboard;
 use commands::discovery::{discover_resources, list_resource};
+use commands::helm::list_helm_releases;
 
 // ── Cluster management commands (inline — thin wrappers over clusters module) ─
 
@@ -140,6 +141,8 @@ pub fn run() {
             // Discovery
             discover_resources,
             list_resource,
+            // Helm releases
+            list_helm_releases,
             // Dashboard
             get_cluster_dashboard,
             // Metrics
