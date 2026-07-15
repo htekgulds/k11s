@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, FileInput, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, FileInput, ChevronDown, ChevronRight, LayoutDashboard } from "lucide-react";
 import { COMMON_RESOURCES, getResourceIcon } from "../../constants";
 import { mono } from "../../theme";
 import { PortForwardPanel } from "../port-forward/PortForwardPanel";
@@ -101,9 +101,36 @@ export function Sidebar({
       }}
     >
       <div style={{ flex: 1, overflowY: "auto" }}>
+        {/* Dashboard */}
+        <button
+          type="button"
+          onClick={() => onOpenResource("dashboard")}
+          style={{
+            ...itemStyle(
+              clusterState.activeResource === "dashboard" && !clusterState.activeTab,
+              false,
+            ),
+            borderTop: "none",
+          }}
+          onMouseEnter={(e) => {
+            if (clusterState.activeResource !== "dashboard")
+              e.currentTarget.style.background = "#060c14";
+          }}
+          onMouseLeave={(e) => {
+            if (clusterState.activeResource !== "dashboard")
+              e.currentTarget.style.background = "none";
+          }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 6, color: "#39ff8a" }}>
+            <LayoutDashboard size={12} />
+            Dashboard
+          </span>
+        </button>
+
         <div
           style={{
             padding: "4px 10px 2px",
+            marginTop: 4,
             color: "#0e1f2e",
             ...mono,
             fontSize: "0.57rem",

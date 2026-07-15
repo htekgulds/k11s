@@ -11,6 +11,7 @@ pub(crate) mod port_forward;
 pub(crate) mod exec;
 pub(crate) mod logs;
 pub(crate) mod rollout;
+pub(crate) mod dashboard;
 pub(crate) mod discovery;
 
 // Re-export public API consumed by commands/ and watchers/
@@ -25,4 +26,5 @@ pub(crate) use port_forward::{start_port_forward, PortForwardInfo};
 pub(crate) use exec::{exec_pod_shell, exec_pod_stdin, exec_pod_stop};
 pub(crate) use logs::{get_pod_logs, stream_pod_logs, PodLogsResponse};
 pub(crate) use rollout::{rollout_action, RolloutResponse};
+pub(crate) use resources::{DaemonSetInfo, CronJobInfo, JobInfo, HpaInfo};
 pub(crate) use discovery::{discover_resources, list_resource, DiscoveredResource};

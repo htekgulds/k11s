@@ -15,3 +15,7 @@ export {
 export {
   startWatchers, stopWatchers, onResourceUpdate,
 } from "./watchers";
+
+export {
+  getClusterDashboard,
+} from "./dashboard";

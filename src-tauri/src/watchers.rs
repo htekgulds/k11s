@@ -189,6 +189,22 @@ async fn run_watcher(
             serde_json::to_value(crate::kube::resources::pvc_to_info(p)).unwrap_or_default()
         })
         .await,
+        "daemonsets" => watch_type::<k8s_openapi::api::apps::v1::DaemonSet, _>(app, context, resource_type, client, cancel, |d| {
+            serde_json::to_value(crate::kube::resources::daemonset_to_info(d)).unwrap_or_default()
+        })
+        .await,
+        "cronjobs" => watch_type::<k8s_openapi::api::batch::v1::CronJob, _>(app, context, resource_type, client, cancel, |c| {
+            serde_json::to_value(crate::kube::resources::cronjob_to_info(c)).unwrap_or_default()
+        })
+        .await,
+        "jobs" => watch_type::<k8s_openapi::api::batch::v1::Job, _>(app, context, resource_type, client, cancel, |j| {
+            serde_json::to_value(crate::kube::resources::job_to_info(j)).unwrap_or_default()
+        })
+        .await,
+        "hpas" => watch_type::<k8s_openapi::api::autoscaling::v2::HorizontalPodAutoscaler, _>(app, context, resource_type, client, cancel, |h| {
+            serde_json::to_value(crate::kube::resources::hpa_to_info(h)).unwrap_or_default()
+        })
+        .await,
         other => {
             eprintln!("unknown resource type for watcher: {other}");
         }

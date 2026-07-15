@@ -1,4 +1,4 @@
-import { Hexagon, Box, Layers, Database, Radio, ArrowRightLeft, FileText, Lock, HardDrive } from "lucide-react";
+import { Hexagon, Box, Layers, Database, Radio, ArrowRightLeft, FileText, Lock, HardDrive, Clock, Crosshair, Activity } from "lucide-react";
 
 // ── Common resources (dedicated sidebar items with icons + shortcuts) ──────
 
@@ -12,6 +12,10 @@ export const COMMON_RESOURCES = [
   { key: "configmaps", label: "ConfigMaps", icon: <FileText size={12} />, shortcut: "C", cmd: "list_configmaps" },
   { key: "secrets", label: "Secrets", icon: <Lock size={12} />, shortcut: "X", cmd: "list_secrets" },
   { key: "pvcs", label: "Volumes", icon: <HardDrive size={12} />, shortcut: "L", cmd: "list_persistentvolumeclaims" },
+  { key: "daemonsets", label: "DaemonSets", icon: <Layers size={12} />, shortcut: "M", cmd: "list_daemonsets" },
+  { key: "cronjobs", label: "CronJobs", icon: <Clock size={12} />, shortcut: "J", cmd: "list_cronjobs" },
+  { key: "jobs", label: "Jobs", icon: <Crosshair size={12} />, shortcut: "B", cmd: "list_jobs" },
+  { key: "hpas", label: "HPAs", icon: <Activity size={12} />, shortcut: "H", cmd: "list_hpas" },
 ];
 
 // Get icon for any resource (common or other)
@@ -60,6 +64,10 @@ export const COLUMNS = {
   configmaps: ["name", "namespace", "data", "age"],
   secrets: ["name", "namespace", "type", "data", "age"],
   pvcs: ["name", "namespace", "status", "capacity", "access_modes", "storageclass", "age"],
+  daemonsets: ["name", "namespace", "desired", "current", "ready", "available", "node_selector", "age"],
+  cronjobs: ["name", "namespace", "schedule", "suspend", "last_schedule", "age"],
+  jobs: ["name", "namespace", "completions", "parallelism", "duration", "conditions", "age"],
+  hpas: ["name", "namespace", "min", "max", "replicas", "target", "age"],
 };
 
 // Fallback columns for unknown resource types
@@ -77,6 +85,10 @@ export const DETAIL_TABS_MAP = {
   secrets: ["info", "yaml", "describe", "graph"],
   ingresses: ["info", "yaml", "describe", "graph"],
   pvcs: ["info", "yaml", "describe", "graph"],
+  daemonsets: ["info", "yaml", "events", "describe", "graph"],
+  cronjobs: ["info", "yaml", "events", "describe", "graph"],
+  jobs: ["info", "yaml", "events", "describe", "graph"],
+  hpas: ["info", "yaml", "describe", "graph"],
   default: ["info", "yaml", "graph"],
 };
 
@@ -85,7 +97,7 @@ export const DETAIL_TABS_MAP = {
 export const defaultNavState = () => ({
   tabs: [],
   activeTab: null,
-  activeResource: "nodes",
+  activeResource: "dashboard",
 });
 
 // ── Column helpers ────────────────────────────────────────────────────────

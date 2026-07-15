@@ -1,6 +1,6 @@
 use crate::kube::{self, resources::{
     DeploymentInfo, StatefulSetInfo, ServiceInfo, IngressInfo,
-    ConfigMapInfo, SecretInfo, PvcInfo,
+    ConfigMapInfo, SecretInfo, PvcInfo, DaemonSetInfo, CronJobInfo, JobInfo, HpaInfo,
 }};
 use crate::kube::nodes::NodeInfo;
 
@@ -42,4 +42,24 @@ pub(crate) async fn list_secrets(context: Option<String>) -> Result<Vec<SecretIn
 #[tauri::command]
 pub(crate) async fn list_persistentvolumeclaims(context: Option<String>) -> Result<Vec<PvcInfo>, String> {
     kube::resources::list_persistentvolumeclaims(context).await
+}
+
+#[tauri::command]
+pub(crate) async fn list_daemonsets(context: Option<String>) -> Result<Vec<DaemonSetInfo>, String> {
+    kube::resources::list_daemonsets(context).await
+}
+
+#[tauri::command]
+pub(crate) async fn list_cronjobs(context: Option<String>) -> Result<Vec<CronJobInfo>, String> {
+    kube::resources::list_cronjobs(context).await
+}
+
+#[tauri::command]
+pub(crate) async fn list_jobs(context: Option<String>) -> Result<Vec<JobInfo>, String> {
+    kube::resources::list_jobs(context).await
+}
+
+#[tauri::command]
+pub(crate) async fn list_hpas(context: Option<String>) -> Result<Vec<HpaInfo>, String> {
+    kube::resources::list_hpas(context).await
 }

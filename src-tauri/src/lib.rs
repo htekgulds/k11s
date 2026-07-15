@@ -8,7 +8,8 @@ use state::{PortForwardManager, LogStreamManager};
 
 use commands::cluster::{list_clusters, cluster_health};
 use commands::resources::{list_nodes, list_deployments, list_statefulsets, list_services,
-    list_ingresses, list_configmaps, list_secrets, list_persistentvolumeclaims};
+    list_ingresses, list_configmaps, list_secrets, list_persistentvolumeclaims,
+    list_daemonsets, list_cronjobs, list_jobs, list_hpas};
 use commands::pod::list_pods;
 use commands::logs::{get_pod_logs, start_log_stream, stop_log_stream};
 use commands::port_forward::{start_port_forward, stop_port_forward, list_port_forwards};
@@ -18,6 +19,8 @@ use commands::yaml::{get_yaml, apply_yaml};
 use commands::describe::describe_resource;
 use commands::delete::delete_resource;
 use commands::events::get_events;
+use commands::export::export_to_file;
+use commands::dashboard::get_cluster_dashboard;
 use commands::discovery::{discover_resources, list_resource};
 
 // ── Cluster management commands (inline — thin wrappers over clusters module) ─
@@ -61,6 +64,7 @@ async fn start_watchers(
     let resource_types = [
         "pods", "nodes", "deployments", "statefulsets", "services",
         "ingresses", "configmaps", "secrets", "pvcs",
+        "daemonsets", "cronjobs", "jobs", "hpas",
     ];
     for rt in resource_types {
         state.start(app_handle.clone(), context.clone(), rt.to_string()).await?;
@@ -107,6 +111,11 @@ pub fn run() {
             list_configmaps,
             list_secrets,
             list_persistentvolumeclaims,
+            // New resource types
+            list_daemonsets,
+            list_cronjobs,
+            list_jobs,
+            list_hpas,
             // Pod interactions
             get_pod_logs,
             start_log_stream,
@@ -129,6 +138,10 @@ pub fn run() {
             // Discovery
             discover_resources,
             list_resource,
+            // Dashboard
+            get_cluster_dashboard,
+            // Export
+            export_to_file,
             // Watchers
             start_watchers,
             stop_watchers,

@@ -10,4 +10,6 @@ pub(crate) mod yaml;
 pub(crate) mod describe;
 pub(crate) mod delete;
 pub(crate) mod health;
+pub(crate) mod dashboard;
+pub(crate) mod export;
 pub(crate) mod discovery;

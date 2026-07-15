@@ -405,3 +405,216 @@ pub(crate) async fn list_persistentvolumeclaims(
 
     Ok(pvcs.items.into_iter().map(pvc_to_info).collect())
 }
+
+// ── DaemonSet ───────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct DaemonSetInfo {
+    pub name: String,
+    pub namespace: String,
+    pub desired: i32,
+    pub current: i32,
+    pub ready: i32,
+    pub available: i32,
+    pub up_to_date: i32,
+    pub node_selector: String,
+    pub age: String,
+}
+
+pub(crate) fn daemonset_to_info(ds: k8s_openapi::api::apps::v1::DaemonSet) -> DaemonSetInfo {
+    let name = ds.metadata.name.unwrap_or_default();
+    let namespace = ds.metadata.namespace.unwrap_or_default();
+    let desired = ds.status.as_ref().map(|s| s.desired_number_scheduled).unwrap_or(0);
+    let current = ds.status.as_ref().map(|s| s.current_number_scheduled).unwrap_or(0);
+    let ready = ds.status.as_ref().map(|s| s.number_ready).unwrap_or(0);
+    let available = ds.status.as_ref().and_then(|s| s.number_available).unwrap_or(0);
+    let up_to_date = ds.status.as_ref().and_then(|s| s.updated_number_scheduled).unwrap_or(0);
+    let node_selector = ds.spec.as_ref()
+        .and_then(|s| s.template.spec.as_ref())
+        .and_then(|ps| ps.node_selector.as_ref())
+        .map(|ns| {
+            ns.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join(",")
+        })
+        .unwrap_or_default();
+    DaemonSetInfo {
+        name,
+        namespace,
+        desired,
+        current,
+        ready,
+        available,
+        up_to_date,
+        node_selector,
+        age: fmt_age(&ds.metadata.creation_timestamp),
+    }
+}
+
+pub(crate) async fn list_daemonsets(context: Option<String>) -> Result<Vec<DaemonSetInfo>, String> {
+    let client = make_client(context).await?;
+    let dss = Api::<k8s_openapi::api::apps::v1::DaemonSet>::all(client)
+        .list(&ListParams::default())
+        .await
+        .map_err(|e| format!("Failed to list daemonsets: {e}"))?;
+    Ok(dss.items.into_iter().map(daemonset_to_info).collect())
+}
+
+// ── CronJob ─────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct CronJobInfo {
+    pub name: String,
+    pub namespace: String,
+    pub schedule: String,
+    pub suspend: bool,
+    pub last_schedule: String,
+    pub age: String,
+}
+
+pub(crate) fn cronjob_to_info(cj: k8s_openapi::api::batch::v1::CronJob) -> CronJobInfo {
+    let name = cj.metadata.name.unwrap_or_default();
+    let namespace = cj.metadata.namespace.unwrap_or_default();
+    let schedule = cj.spec.as_ref().map(|s| s.schedule.clone()).unwrap_or_default();
+    let suspend = cj.spec.as_ref().and_then(|s| s.suspend).unwrap_or(false);
+    use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time as K8sTime;
+    let last_schedule = cj.status.as_ref()
+        .and_then(|s| s.last_schedule_time.as_ref())
+        .map(|t| fmt_age(&Some(K8sTime(t.0.clone()))))
+        .unwrap_or_else(|| "—".to_string());
+    CronJobInfo {
+        name,
+        namespace,
+        schedule,
+        suspend,
+        last_schedule,
+        age: fmt_age(&cj.metadata.creation_timestamp),
+    }
+}
+
+pub(crate) async fn list_cronjobs(context: Option<String>) -> Result<Vec<CronJobInfo>, String> {
+    let client = make_client(context).await?;
+    let cjs = Api::<k8s_openapi::api::batch::v1::CronJob>::all(client)
+        .list(&ListParams::default())
+        .await
+        .map_err(|e| format!("Failed to list cronjobs: {e}"))?;
+    Ok(cjs.items.into_iter().map(cronjob_to_info).collect())
+}
+
+// ── Job ─────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct JobInfo {
+    pub name: String,
+    pub namespace: String,
+    pub completions: String,
+    pub parallelism: i32,
+    pub duration: String,
+    pub conditions: String,
+    pub age: String,
+}
+
+pub(crate) fn job_to_info(j: k8s_openapi::api::batch::v1::Job) -> JobInfo {
+    let name = j.metadata.name.unwrap_or_default();
+    let namespace = j.metadata.namespace.unwrap_or_default();
+    let completions = j.status.as_ref()
+        .map(|s| {
+            let succeed = s.succeeded.unwrap_or(0);
+            let desired = j.spec.as_ref().and_then(|sp| sp.completions).unwrap_or(1);
+            format!("{succeed}/{desired}")
+        })
+        .unwrap_or_else(|| "0/1".to_string());
+    let parallelism = j.spec.as_ref().and_then(|sp| sp.parallelism).unwrap_or(1);
+    let duration = j.status.as_ref()
+        .and_then(|s| {
+            let start = s.start_time.as_ref()?;
+            let end = s.completion_time.as_ref()?;
+            let dur = end.0.signed_duration_since(start.0.clone());
+            let secs = dur.num_seconds();
+            Some(if secs < 60 {
+                format!("{secs}s")
+            } else {
+                format!("{}m{}s", secs / 60, secs % 60)
+            })
+        })
+        .unwrap_or_else(|| "running".to_string());
+    let conditions = j.status.as_ref()
+        .and_then(|s| s.conditions.as_ref())
+        .map(|conds| conds.iter()
+            .filter(|c| c.status == "True")
+            .map(|c| c.type_.clone())
+            .collect::<Vec<_>>()
+            .join(","))
+        .unwrap_or_default();
+    JobInfo {
+        name,
+        namespace,
+        completions,
+        parallelism,
+        duration,
+        conditions,
+        age: fmt_age(&j.metadata.creation_timestamp),
+    }
+}
+
+pub(crate) async fn list_jobs(context: Option<String>) -> Result<Vec<JobInfo>, String> {
+    let client = make_client(context).await?;
+    let jobs = Api::<k8s_openapi::api::batch::v1::Job>::all(client)
+        .list(&ListParams::default())
+        .await
+        .map_err(|e| format!("Failed to list jobs: {e}"))?;
+    Ok(jobs.items.into_iter().map(job_to_info).collect())
+}
+
+// ── HorizontalPodAutoscaler ─────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct HpaInfo {
+    pub name: String,
+    pub namespace: String,
+    pub min: i32,
+    pub max: i32,
+    pub replicas: i32,
+    pub target: String,
+    pub age: String,
+}
+
+pub(crate) fn hpa_to_info(hpa: k8s_openapi::api::autoscaling::v2::HorizontalPodAutoscaler) -> HpaInfo {
+    let name = hpa.metadata.name.unwrap_or_default();
+    let namespace = hpa.metadata.namespace.unwrap_or_default();
+    let min = hpa.spec.as_ref().map(|s| s.min_replicas.unwrap_or(1)).unwrap_or(1);
+    let max = hpa.spec.as_ref().map(|s| s.max_replicas).unwrap_or(1);
+    let replicas = hpa.status.as_ref().and_then(|s| s.current_replicas).unwrap_or(0);
+    let target = hpa.spec.as_ref()
+        .and_then(|s| s.metrics.as_ref())
+        .map(|metrics| {
+            metrics.iter().filter_map(|m| {
+                if let Some(r) = &m.resource {
+                    let name = &r.name;
+                    let target_val = r.target.average_utilization
+                        .map(|v| format!("{v}%"))
+                        .or_else(|| r.target.average_value.as_ref().map(|av| av.0.clone()))
+                        .unwrap_or_default();
+                    return Some(format!("{}:{}", &**name, target_val));
+                }
+                None
+            }).collect::<Vec<_>>().join(", ")
+        })
+        .unwrap_or_default();
+    HpaInfo {
+        name,
+        namespace,
+        min,
+        max,
+        replicas,
+        target,
+        age: fmt_age(&hpa.metadata.creation_timestamp),
+    }
+}
+
+pub(crate) async fn list_hpas(context: Option<String>) -> Result<Vec<HpaInfo>, String> {
+    let client = make_client(context).await?;
+    let hpas = Api::<k8s_openapi::api::autoscaling::v2::HorizontalPodAutoscaler>::all(client)
+        .list(&ListParams::default())
+        .await
+        .map_err(|e| format!("Failed to list HPAs: {e}"))?;
+    Ok(hpas.items.into_iter().map(hpa_to_info).collect())
+}

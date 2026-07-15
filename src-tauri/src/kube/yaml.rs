@@ -24,7 +24,9 @@ pub(crate) async fn get_yaml(
     namespace: Option<String>,
     omit_managed_fields: bool,
 ) -> Result<YamlResponse, String> {
-    use k8s_openapi::api::apps::v1::{Deployment, StatefulSet};
+    use k8s_openapi::api::apps::v1::{DaemonSet, Deployment, StatefulSet};
+    use k8s_openapi::api::batch::v1::{CronJob, Job};
+    use k8s_openapi::api::autoscaling::v2::HorizontalPodAutoscaler;
     use k8s_openapi::api::core::v1::{ConfigMap, Node, PersistentVolumeClaim, Pod, Secret, Service};
     use k8s_openapi::api::networking::v1::Ingress;
     use kube::Api;
@@ -100,6 +102,38 @@ pub(crate) async fn get_yaml(
                 .get(&name)
                 .await
                 .map_err(|e| format!("Failed to get node: {e}"))?;
+            to_yaml_stripped(&obj, omit_managed_fields)?
+        }
+        "daemonsets" | "DaemonSet" => {
+            let ns = namespace.ok_or("namespace required")?;
+            let obj = Api::<DaemonSet>::namespaced(client, &ns)
+                .get(&name)
+                .await
+                .map_err(|e| format!("Failed to get daemonset: {e}"))?;
+            to_yaml_stripped(&obj, omit_managed_fields)?
+        }
+        "cronjobs" | "CronJob" => {
+            let ns = namespace.ok_or("namespace required")?;
+            let obj = Api::<CronJob>::namespaced(client, &ns)
+                .get(&name)
+                .await
+                .map_err(|e| format!("Failed to get cronjob: {e}"))?;
+            to_yaml_stripped(&obj, omit_managed_fields)?
+        }
+        "jobs" | "Job" => {
+            let ns = namespace.ok_or("namespace required")?;
+            let obj = Api::<Job>::namespaced(client, &ns)
+                .get(&name)
+                .await
+                .map_err(|e| format!("Failed to get job: {e}"))?;
+            to_yaml_stripped(&obj, omit_managed_fields)?
+        }
+        "hpas" | "HorizontalPodAutoscaler" => {
+            let ns = namespace.ok_or("namespace required")?;
+            let obj = Api::<HorizontalPodAutoscaler>::namespaced(client, &ns)
+                .get(&name)
+                .await
+                .map_err(|e| format!("Failed to get HPA: {e}"))?;
             to_yaml_stripped(&obj, omit_managed_fields)?
         }
         other => return Err(format!("Unsupported kind: {other}")),
