@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Hexagon, X, Command } from "lucide-react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { mono } from "../../theme";
 import { ClusterDropdown } from "./ClusterDropdown";
 import { NamespaceSwitcher } from "./NamespaceSwitcher";
@@ -16,9 +17,15 @@ export function TopBar({
   activeNamespace,
   onNamespaceChange,
   data,
+  showFilter,
+  filterValue,
+  onFilterChange,
 }) {
   const detailTabs = clusterState.tabs.filter((t) => t.type === "detail");
   const scrollRef = useRef(null);
+  const filterRef = useRef(null);
+
+  useHotkeys("/", () => filterRef.current?.focus(), { preventDefault: true, enableOnFormTags: true }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -71,6 +78,42 @@ export function TopBar({
         onNamespaceChange={onNamespaceChange}
         data={data}
       />
+
+      {/* Contextual filter — only when a resource list is active */}
+      {showFilter && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px", flexShrink: 0 }}>
+          <input
+            ref={filterRef}
+            value={filterValue}
+            onChange={(e) => onFilterChange(e.target.value)}
+            placeholder="filter…"
+            style={{
+              background: "#080e18",
+              border: "1px solid #0e1f2e",
+              borderRadius: 3,
+              color: "#bcc",
+              padding: "2px 8px",
+              ...mono,
+              fontSize: "0.68rem",
+              outline: "none",
+              width: 130,
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") onFilterChange("");
+            }}
+          />
+          {filterValue && (
+            <button
+              type="button"
+              onClick={() => onFilterChange("")}
+              style={{ background: "none", border: "none", color: "#1e3a52", cursor: "pointer", fontSize: "0.7rem", padding: 0 }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
+
       <div
         ref={scrollRef}
         onWheel={(e) => {

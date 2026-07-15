@@ -1,124 +1,209 @@
 # k11s — Tauri Kubernetes Viewer
 
-Tauri v2 app (Rust backend + React frontend) for viewing Kubernetes clusters.
+Tauri v2 app (Rust backend + React frontend) for viewing and interacting with Kubernetes clusters.
 
 ## Tech Stack
 
-- **Backend:** Rust (kube 0.98, k8s-openapi 0.24 w/ v1.31, tokio, serde, serde_yaml, tauri v2)
+- **Backend:** Rust (kube 0.98, k8s-openapi 0.24 w/ v1.31, tokio, chrono, serde, serde_yaml, tauri v2)
 - **Frontend:** React 18 + Vite + TailwindCSS + lucide-react icons + react-hotkeys-hook
-- **k8s client:** `kube` crate (kubeconfig merge, watch, list, logs, apply via kubectl subprocess)
-- **Build:** `npm run tauri` (dev), `npm run tauri build` (release)
+- **k8s client:** `kube` crate for all API ops (native exec, port-forward, watch, list, logs, describe, delete, rollout, discovery). `kubectl apply -f -` subprocess only for YAML apply.
+- **Build:** `npm run tauri dev` (dev), `npm run tauri build` (release)
 
 ## Project Structure
 
 ```
 k11s/
-├── src/                        # React frontend
-│   ├── main.jsx                # Entry point
-│   ├── App.jsx                 # Root component
-│   ├── App.css                 # Global styles
-│   ├── kubeview/
-│   │   ├── KubeClient.jsx      # K8s API context provider
-│   │   ├── api.js              # Tauri invoke wrappers
-│   │   ├── constants.jsx       # Resource type constants
-│   │   ├── theme.jsx           # Theming
-│   │   ├── components/         # React components
-│   │   ├── utils/              # Utility functions
-│   │   └── *.css
-├── src-tauri/                  # Rust backend
+├── src/                                  # React frontend
+│   ├── main.jsx                          # Entry point
+│   ├── App.jsx                           # Root component
+│   ├── App.css                           # Global styles
+│   └── kubeview/
+│       ├── KubeClient.jsx                # K8s API context provider
+│       ├── constants.jsx                 # Resource type constants
+│       ├── theme.jsx                     # Theming (light/dark)
+│       ├── kubeview.css                  # App-specific styles
+│       ├── api/                          # Tauri invoke wrappers (per-domain)
+│       │   ├── index.js                  # Re-exports
+│       │   ├── clusters.js               # Cluster management
+│       │   ├── resources.js              # Resource CRUD, discovery, rollout, yaml
+│       │   ├── exec.js                   # Pod shell exec
+│       │   └── watchers.js               # Watch lifecycle
+│       ├── stores/                       # Zustand stores
+│       │   ├── index.js                  # Re-exports
+│       │   ├── useClustersStore.js       # Cluster list & selection
+│       │   ├── useDataStore.js           # Resource data cache
+│       │   └── useNavigationStore.js     # Sidebar/tab navigation state
+│       ├── hooks/                        # React hooks
+│       │   ├── index.js                  # Re-exports
+│       │   ├── useClock.js               # Time display
+│       │   ├── useClusterHealth.js       # Health check polling
+│       │   └── useWatchers.js            # Watch event subscription
+│       ├── features/                     # Feature-grouped components
+│       │   ├── layout/                   # App shell
+│       │   │   ├── Sidebar.jsx           # Resource nav + cluster selector
+│       │   │   ├── TopBar.jsx            # Header: cluster info + actions
+│       │   │   ├── StatusBar.jsx         # Connection status indicator
+│       │   │   ├── ClusterDropdown.jsx   # Cluster context picker
+│       │   │   └── ShortcutsModal.jsx    # Keyboard shortcuts help (?)
+│       │   ├── resource-list/
+│       │   │   └── ResourceListTab.jsx   # Table for any resource type
+│       │   ├── detail-view/
+│       │   │   ├── DetailView.jsx        # Resource detail pane container
+│       │   │   ├── DetailTabs.jsx        # Tab container for sub-views
+│       │   │   ├── DetailHeader.jsx      # Resource name/namespace/age header
+│       │   │   ├── InfoTab.jsx           # General resource metadata
+│       │   │   ├── LogsTab.jsx           # Pod logs (snapshot + streaming)
+│       │   │   ├── YamlTab.jsx           # YAML viewer/editor + save/apply
+│       │   │   ├── EventsTab.jsx         # Related events
+│       │   │   ├── DescribeTab.jsx       # kubectl describe output
+│       │   │   ├── ShellTab.jsx          # Interactive pod shell (xterm.js)
+│       │   │   ├── GraphTab.jsx          # Topology graph tab wrapper
+│       │   │   └── GraphView.jsx         # Graph canvas (force-directed)
+│       │   ├── command-palette/
+│       │   │   └── CommandPalette.jsx    # Cmd+K palette (search resources, nav)
+│       │   └── port-forward/
+│       │       └── PortForwardPanel.jsx  # Active port forwards manager
+│       ├── components/ui/                # Shared UI primitives
+│       │   ├── Dropdown.jsx
+│       │   ├── FieldRow.jsx
+│       │   ├── Pill.jsx
+│       │   ├── Spinner.jsx
+│       │   ├── StatusDot.jsx
+│       │   └── Toast.jsx
+│       └── utils/                        # Utility functions
+│           ├── clusterColors.js
+│           ├── colors.js
+│           └── graph.js
+├── src-tauri/                            # Rust backend
+│   ├── Cargo.toml
 │   └── src/
-│       ├── main.rs             # Binary entry
-│       ├── lib.rs              # Tauri commands, module declarations
-│       ├── k8s.rs              # k8s API: list resources, get logs, get yaml, apply yaml
-│       ├── clusters.rs         # Multi-kubeconfig merging, cluster inference, config persistence
-│       └── watchers.rs         # Watch-based real-time resource updates via Tauri events
-├── package.json                # npm deps & scripts
-├── vite.config.js              # Vite config (port 1420, strict port, Tauri dev server)
+│       ├── main.rs                       # Binary entry: calls lib::run()
+│       ├── lib.rs                        # Tauri command registration, app builder
+│       ├── clusters.rs                   # Multi-kubeconfig merge, CLI args, config persistence
+│       ├── watchers.rs                   # Watch-based streaming (resource-update events)
+│       ├── state/                        # App state managed by Tauri
+│       │   └── mod.rs                    # PortForwardManager, LogStreamManager
+│       ├── kube/                         # kube-rs core API layer (no Tauri deps)
+│       │   ├── mod.rs                    # Re-exports all kube operations
+│       │   ├── client.rs                 # Client creation from kubeconfig
+│       │   ├── pods.rs                   # Pod list
+│       │   ├── nodes.rs                  # Node list
+│       │   ├── resources.rs              # Generic resource list (for discovery)
+│       │   ├── logs.rs                   # Pod logs (snapshot + streaming)
+│       │   ├── exec.rs                   # Pod shell exec (native kube-rs WebSocket)
+│       │   ├── port_forward.rs           # Port forwarding (native kube-rs)
+│       │   ├── describe.rs               # kubectl describe equivalent
+│       │   ├── delete.rs                 # Resource deletion (grace-period, force)
+│       │   ├── events.rs                 # Server-side filtered events
+│       │   ├── health.rs                 # Cluster health check
+│       │   ├── yaml.rs                   # Get/apply YAML (apply uses kubectl subprocess)
+│       │   ├── rollout.rs                # Deploy/Sts rollout: restart, undo, pause, resume
+│       │   └── discovery.rs              # API discovery + dynamic resource listing
+│       └── commands/                     # Tauri #[tauri::command] handlers (thin wrappers)
+│           ├── mod.rs                    # Module declarations
+│           ├── cluster.rs                # list_clusters, cluster_health
+│           ├── pod.rs                    # list_pods
+│           ├── resources.rs              # list_nodes, list_deployments, etc.
+│           ├── logs.rs                   # get_pod_logs, start_log_stream, stop_log_stream
+│           ├── exec.rs                   # exec_pod_shell, exec_pod_stdin, exec_pod_stop
+│           ├── port_forward.rs           # start_port_forward, stop_port_forward, list_port_forwards
+│           ├── rollout.rs                # rollout_action
+│           ├── yaml.rs                   # get_yaml, apply_yaml
+│           ├── describe.rs               # describe_resource
+│           ├── delete.rs                 # delete_resource
+│           ├── events.rs                 # get_events
+│           ├── health.rs                 # cluster_health
+│           └── discovery.rs              # discover_resources, list_resource
+├── package.json
+├── vite.config.js                        # Vite config (port 1420)
 ├── tailwind.config.js
 └── postcss.config.js
 ```
 
 ## Architecture
 
-### Rust — Tauri Commands (in `lib.rs`)
+### Rust — kube/ + commands/ + clusters/ + watchers/
 
-All Tauri commands are async functions annotated with `#[tauri::command]`. They take an optional `context: Option<String>` parameter for targeting a specific kubeconfig context.
+The backend is split into four layers:
 
-| Command | File | Description |
-|---------|------|-------------|
-| `list_clusters` | clusters.rs | List merged kubeconfig contexts |
-| `cluster_health` | k8s.rs | Verify API server is reachable |
-| `list_nodes`, `list_pods`, `list_deployments`, `list_statefulsets`, `list_services`, `list_ingresses`, `list_configmaps`, `list_secrets`, `list_persistentvolumeclaims` | k8s.rs | List k8s resources |
-| `get_pod_logs` | k8s.rs | Stream pod logs |
-| `get_yaml` | k8s.rs | Get resource YAML (supports 9 resource kinds, optional `omit_managed_fields`) |
-| `get_events` | k8s.rs | List events filtered by resource |
-| `apply_yaml` | k8s.rs | Apply YAML via kubectl subprocess (stdin pipe) |
-| `add_kubeconfig_files`, `add_kubeconfig_folder` | clusters.rs | Add custom kubeconfig paths |
+| Layer | Directory | Role |
+|-------|-----------|------|
+| **kube/** | `src-tauri/src/kube/` | Pure kube-rs operations — no Tauri types. Used by both `commands/` and `watchers.rs`. |
+| **commands/** | `src-tauri/src/commands/` | Tauri command handlers. Thin adapters that call into `kube/`, serialize results, manage state. |
+| **clusters/** | `clusters.rs` | Kubeconfig persistence, context merging, CLI arg parsing. |
+| **watchers/** | `watchers.rs` | Watch-based streaming — spawns tokio tasks, emits `resource-update` Tauri events. |
 
-Key pattern: each resource has a `*Info` struct (Serialize) and a `*_to_info()` converter. New kinds need:
-1. `*Info` struct in `k8s.rs`
-2. `list_*()` / `get_yaml()` match arm
-3. `*_to_info()` converter
-4. Frontend API call + component
+### Tauri Commands (registered in `lib.rs`)
 
-### `k8s.rs` — Core patterns
+| Command | Handler module | Description |
+|---------|----------------|-------------|
+| `list_clusters` | commands/cluster | List merged kubeconfig contexts |
+| `cluster_health` | commands/health | Verify API server reachable |
+| `get_default_context` | clusters (inline) | Active context name |
+| `add_kubeconfig_files` | clusters (inline) | Add custom kubeconfig paths |
+| `add_kubeconfig_folder` | clusters (inline) | Scan folder for kubeconfigs |
+| `get_kubeconfig_paths` | clusters (inline) | List configured paths |
+| `remove_kubeconfig_path` | clusters (inline) | Remove a kubeconfig path |
+| `list_nodes`, `list_pods`, `list_deployments`, `list_statefulsets`, `list_services`, `list_ingresses`, `list_configmaps`, `list_secrets`, `list_persistentvolumeclaims` | commands/resources, commands/pod | List k8s resources |
+| `get_pod_logs` | commands/logs | Fetch pod logs snapshot |
+| `start_log_stream`, `stop_log_stream` | commands/logs | Live log streaming (tail -f) |
+| `exec_pod_shell`, `exec_pod_stdin`, `exec_pod_stop` | commands/exec | Interactive pod shell (native kube-rs exec) |
+| `start_port_forward`, `stop_port_forward`, `list_port_forwards` | commands/port_forward | Port forwarding management |
+| `get_yaml` | commands/yaml | Get resource YAML (supports all resources via discovery) |
+| `apply_yaml` | commands/yaml | Apply YAML via `kubectl apply -f -` subprocess (stdin pipe) |
+| `describe_resource` | commands/describe | kubectl describe equivalent |
+| `delete_resource` | commands/delete | Delete with grace-period + force options |
+| `get_events` | commands/events | Events filtered by resource (server-side field selector) |
+| `rollout_action` | commands/rollout | Restart / undo / pause / resume rollout |
+| `discover_resources` | commands/discovery | Query cluster API discovery for all resource types |
+| `list_resource` | commands/discovery | List arbitrary resource by group/version/kind |
+| `start_watchers`, `stop_watchers` | lib.rs (inline) | Watch lifecycle for live resource updates |
 
-- **Client creation:** `make_client(context)` -> `Kubeconfig::read_from` -> custom merge -> `Client::try_from`
-- **Resource listing:** `Api::<T>::all(client).list(...)` or `Api::<T>::namespaced(client, &ns).list(...)`
-- **YAML get:** match on `kind` string -> `Api::<T>::namespaced(client, &ns).get(&name)` -> `serde_yaml::to_string`
-- **YAML apply:** `kubectl apply -f -` via tokio subprocess with stdin pipe (NOT kube crate)
+### Rust — Key Patterns
+
+- **Client creation:** `kube::client::make_client(context)` in `kube/client.rs` -> `Kubeconfig::read_from` -> custom merge -> `Client::try_from`
+- **Resource listing:** `Api::<T>::all(client).list(...)` or `Api::<T>::namespaced(client, &ns).list(...)` via `kube/pods.rs`, `kube/nodes.rs`, `kube/resources.rs`
+- **YAML apply:** `kubectl apply -f -` via tokio subprocess with stdin pipe (the only kubectl dependency left)
+- **Exec:** Native kube-rs WebSocket (`kube/exec.rs`) — no more `kubectl exec` subprocess
+- **Port forward:** Native kube-rs portforward API via WebSocket (`kube/port_forward.rs`)
 - **Age formatting:** `fmt_age()` helper converts timestamps to human-readable
+- **App state:** Managed via `tauri::State` — `WatcherManager`, `PortForwardManager`, `LogStreamManager` behind `Mutex` + `CancellationToken`
 
-### `clusters.rs` — Multi-kubeconfig
+### Frontend — State Management (Zustand stores)
 
-- Config stored at `~/.config/k11s/config.json` (or `$K11S_CONFIG`)
-- Merges default kubeconfig + custom paths
-- Context deduplication on add
-- Inferred labels: env (prod/staging/dev), provider (eks/gke/kind/aks/k8s), region
+| Store | Purpose |
+|-------|---------|
+| `useClustersStore` | Cluster list, active context, kubeconfig paths |
+| `useDataStore` | Cached resource data (pods, deployments, etc.) |
+| `useNavigationStore` | Sidebar selection, open tabs, active resource |
 
-### `watchers.rs` — Real-time updates
+### Frontend — API Bridge (`api/`)
 
-Watch-based streaming of k8s resource changes, emitted as `resource-update` Tauri events. Used by the UI for live updates.
+All Tauri commands are wrapped as async JS functions per domain. Key pattern:
+- `invoke("command_name", { param: value })` from `@tauri-apps/api/core`
+- `k8sInvoke` helper in `resources.js` passes `context` to every k8s command
+- Resource updates use `listen("resource-update", callback)` from `@tauri-apps/api/event` which returns an `unlisten` function
+- Exec uses `listen("shell-output", callback)` for terminal I/O
 
-### Frontend — React Components (in `src/kubeview/components/`)
+### Frontend — Components (`features/`)
 
-| Component | Purpose |
-|-----------|---------|
-| `Sidebar.jsx` | Resource type navigation + cluster selector |
-| `TopBar.jsx` | Header with cluster info + actions |
-| `StatusBar.jsx` | Connection status indicator |
-| `ClusterDropdown.jsx` | Cluster context picker |
-| `ClustersTab.jsx` | Cluster management view |
-| `ResourceListTab.jsx` | Table view for any resource type |
-| `DetailView.jsx` | Resource detail pane |
-| `DetailTabs.jsx` | Tab container for detail sub-views |
-| `DetailHeader.jsx` | Resource name/namespace/age header |
-| `InfoTab.jsx` | General resource info |
-| `EventsTab.jsx` | Related events |
-| `LogsTab.jsx` | Pod logs viewer |
-| `YamlTab.jsx` | YAML viewer/editor with save/apply |
-| `GraphTab.jsx` | Topology graph |
-| `GraphView.jsx` | Graph canvas |
-| `CommandPalette.jsx` | Cmd+K palette for search/navigation |
-| `Sidebar.jsx` | Left sidebar |
+Components are grouped by feature domain under `features/`:
+- **layout/** — App shell (Sidebar, TopBar, StatusBar, ClusterDropdown, ShortcutsModal)
+- **resource-list/** — Table view for any resource type
+- **detail-view/** — Tabbed detail pane (Info, Logs, YAML, Events, Describe, Graph, Shell)
+- **command-palette/** — Cmd+K search/navigation
+- **port-forward/** — Port forward management panel
 
-### Frontend — API Bridge (`api.js`)
+Shared UI primitives live in `components/ui/` (Dropdown, FieldRow, Pill, Spinner, StatusDot, Toast).
 
-All Tauri commands are wrapped as async JS functions. Key pattern: `invoke("command_name", { param: value })`. The `k8sInvoke` helper passes `context` to every k8s command. Resource updates use `listen("resource-update", callback)` which returns an `unlisten` function.
+## Key Conventions
 
-### Frontend — Resource type constants (`constants.jsx`)
-
-Defines which k8s resource types are supported, how they map to display names, and their API behavior.
-
-## Resource type coverage
-
-Currently supports fetching YAML for: Pod, Deployment, StatefulSet, Service, Ingress, ConfigMap, Secret, PersistentVolumeClaim, Node.
-
-The `get_yaml` command uses a match on the `kind` string. Add new kinds by:
-1. Adding k8s-openapi import
-2. Adding match arm in `get_yaml()` in `k8s.rs`
-3. Adding `*Info` struct + `*_to_info()` if listing is also needed
-4. Adding frontend constant + component support
+1. **All k8s API via kube-rs** — `kube::Api`, `kube::Client`, `k8s_openapi` types. No `kubectl` subprocess except YAML apply (`apply_yaml`).
+2. **`#[tauri::command]` in commands/** — each handler module owns its command function(s). `lib.rs` imports and registers them in `generate_handler![]`.
+3. **Frontend: functional components + Tailwind CSS** — no class components, minimal custom CSS.
+4. **All commands return `Result<T, String>`** — errors propagate to frontend as promise rejections.
+5. **Zustand for state** — useClustersStore, useDataStore, useNavigationStore. Avoid prop drilling.
+6. **Watch-based real-time updates** — `start_watchers`/`stop_watchers` via `watchers.rs`.
 
 ## Development
 
@@ -130,18 +215,11 @@ npm run tauri dev                     # Full Tauri dev with hot-reload
 npm run tauri build                   # Production build
 ```
 
-Tauri dev: requires `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf` on Linux.
-
-Conventions:
-- Use `kube` crate for API operations (list, get, watch, logs) — it handles auth, caching, pagination
-- Use `kubectl apply -f -` subprocess for YAML apply — not the kube crate
-- Frontend: functional components with hooks, Tailwind classes
-- All Tauri commands return `Result<T, String>` — errors propagate to frontend as rejections
-- Use `#[tauri::command]` in `lib.rs`, register in the builder
+Tauri dev requires: `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf` on Linux.
 
 ## Backlog
 
-The project backlog is at `BACKLOG.md` in the repo root — categorized into Features (F1-F10), UX improvements (UX1-UX7), Bugs (B1-B5), Security (S1-S2), and Architecture (A1-A3). Feature work should reference backlog IDs.
+The project backlog is at `BACKLOG.md` in the repo root. **All backlog items are implemented as of 2026-07-10** — F1–F10, UX1–UX7, B1–B5, S1–S2, A1–A3 are complete.
 
 ## Auth (for agent use)
 

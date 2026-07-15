@@ -1,5 +1,4 @@
 import { useRef, useState, useEffect } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 import { Trash2 } from "lucide-react";
 import { COLUMNS, getColumns } from "../../constants";
 import { mono } from "../../theme";
@@ -7,7 +6,6 @@ import { nsColor } from "../../utils/colors";
 import { Pill } from "../../components/ui/Pill";
 import { Spinner } from "../../components/ui/Spinner";
 import { StatusDot } from "../../components/ui/StatusDot";
-import { Dropdown } from "../../components/ui/Dropdown";
 import { deleteResource } from "../../api";
 
 export function ResourceListTab({
@@ -19,8 +17,6 @@ export function ResourceListTab({
   filter,
   setFilter,
   namespace,
-  setNamespace,
-  namespaces,
   onRefresh,
   clusterId,
 }) {
@@ -29,7 +25,6 @@ export function ResourceListTab({
   const [hovered, setHovered] = useState(null);
   const [showColPicker, setShowColPicker] = useState(false);
   const [dragCol, setDragCol] = useState(null);
-  const filterRef = useRef(null);
   const colPickerRef = useRef(null);
   const resizeRef = useRef(null);
 
@@ -131,9 +126,6 @@ export function ResourceListTab({
     return () => window.removeEventListener("mousedown", close);
   }, [showColPicker]);
 
-  useHotkeys("/", () => filterRef.current?.focus(), { preventDefault: true, useKey: true }, []);
-  useHotkeys("escape", () => { if (filter) setFilter(""); }, { enableOnFormTags: true }, [filter, setFilter]);
-
   const rows = data.filter((r) => {
     const nsOk = !namespace || namespace === "All" || r.namespace === namespace || !r.namespace;
     const txOk =
@@ -191,36 +183,7 @@ export function ResourceListTab({
           flexShrink: 0,
         }}
       >
-        <span style={{ color: "#0e1f2e", ...mono, fontSize: "0.85rem" }}>ns:</span>
-        <Dropdown value={namespace} options={namespaces} onChange={setNamespace} style={{ minWidth: 110 }} />
-        <span style={{ color: "#0a1420", fontSize: "0.68em", marginLeft: 3 }}>/</span>
-        <input
-          ref={filterRef}
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="filter…"
-          style={{
-            background: "#080e18",
-            border: "1px solid #0e1f2e",
-            borderRadius: 3,
-            color: "#bcc",
-            padding: "2px 8px",
-            ...mono,
-            fontSize: "0.68rem",
-            outline: "none",
-            width: 150,
-          }}
-        />
-        {filter && (
-          <button
-            type="button"
-            onClick={() => setFilter("")}
-            style={{ background: "none", border: "none", color: "#1e3a52", cursor: "pointer", fontSize: "0.7rem" }}
-          >
-            ✕
-          </button>
-        )}
-        <span style={{ color: "#0a1420", ...mono, fontSize: "0.62rem", marginLeft: 2 }}>
+        <span style={{ color: "#0a1420", ...mono, fontSize: "0.62rem" }}>
           {(data || []).length} items
         </span>
         <div style={{ position: "relative", marginLeft: 4 }} ref={colPickerRef}>

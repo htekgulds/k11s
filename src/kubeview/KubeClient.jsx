@@ -24,6 +24,7 @@ import { Sidebar } from "./features/layout/Sidebar";
 import { StatusBar } from "./features/layout/StatusBar";
 import { DetailView } from "./features/detail-view/DetailView";
 import { ResourceListTab } from "./features/resource-list/ResourceListTab";
+import { Dashboard } from "./features/dashboard/Dashboard";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -95,6 +96,14 @@ export default function KubeClient() {
   const tabData = clusterData[tabClusterId] || {};
   const detailObj = resolveDetailObject(activeDetailTab, tabData);
   const activeCluster = clusters.find((c) => c.id === activeClusterId);
+
+  const inDetailView = !!(activeDetailTab && detailObj);
+  const showFilter = !inDetailView && nav.activeResource && nav.activeResource !== "dashboard";
+  const tf = getTF(activeClusterId);
+  const handleFilterChange = useCallback(
+    (v) => setTF(activeClusterId, { filter: v }),
+    [activeClusterId, setTF],
+  );
 
   // ── Navigation callbacks ─────────────────────────────────────────────────
 
@@ -351,7 +360,6 @@ export default function KubeClient() {
       const missingData = clusterData[cid] || {};
       const missingLoading = clusterLoading[cid] || {};
       const tf = getTF(cid);
-      const ns = ["All", ...new Set((missingData[rt] || []).map((r) => r.namespace).filter(Boolean))];
       return (
         <ResourceListTab
           key={`${activeDetailTab.id}-missing`}
@@ -363,10 +371,17 @@ export default function KubeClient() {
           filter={tf.filter}
           setFilter={(v) => setTF(cid, { filter: v })}
           namespace={tf.namespace}
-          setNamespace={(v) => setTF(cid, { namespace: v })}
-          namespaces={ns}
           onRefresh={() => fetchResource(rt, cid, resourceLookup)}
           clusterId={cid}
+        />
+      );
+    }
+
+    if (nav.activeResource === "dashboard") {
+      return (
+        <Dashboard
+          clusterId={activeClusterId}
+          onRefreshResource={(rt) => fetchResource(rt, activeClusterId, resourceLookup)}
         />
       );
     }
@@ -374,7 +389,6 @@ export default function KubeClient() {
     if (nav.activeResource) {
       const rt = nav.activeResource;
       const tf = getTF(activeClusterId);
-      const ns = ["All", ...new Set((data[rt] || []).map((r) => r.namespace).filter(Boolean))];
       return (
         <ResourceListTab
           key={rt}
@@ -386,8 +400,6 @@ export default function KubeClient() {
           filter={tf.filter}
           setFilter={(v) => setTF(activeClusterId, { filter: v })}
           namespace={tf.namespace}
-          setNamespace={(v) => setTF(activeClusterId, { namespace: v })}
-          namespaces={ns}
           onRefresh={() => fetchResource(rt, activeClusterId, resourceLookup)}
           clusterId={activeClusterId}
         />
@@ -427,6 +439,9 @@ export default function KubeClient() {
         activeNamespace={getTF(activeClusterId).namespace || "All"}
         onNamespaceChange={(ns) => setTF(activeClusterId, { namespace: ns })}
         data={data}
+        showFilter={showFilter}
+        filterValue={tf.filter || ""}
+        onFilterChange={handleFilterChange}
       />
 
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
