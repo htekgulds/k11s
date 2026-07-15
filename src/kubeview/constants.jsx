@@ -1,4 +1,4 @@
-import { Hexagon, Box, Layers, Database, Radio, ArrowRightLeft, FileText, Lock, HardDrive, Clock, Crosshair, Activity } from "lucide-react";
+import { Hexagon, Box, Layers, Database, Radio, ArrowRightLeft, FileText, Lock, HardDrive, Clock, Crosshair, Activity, Package } from "lucide-react";
 
 // ── Common resources (dedicated sidebar items with icons + shortcuts) ──────
 
@@ -16,6 +16,7 @@ export const COMMON_RESOURCES = [
   { key: "cronjobs", label: "CronJobs", icon: <Clock size={12} />, shortcut: "J", cmd: "list_cronjobs" },
   { key: "jobs", label: "Jobs", icon: <Crosshair size={12} />, shortcut: "B", cmd: "list_jobs" },
   { key: "hpas", label: "HPAs", icon: <Activity size={12} />, shortcut: "H", cmd: "list_hpas" },
+  { key: "helm", label: "Helm Releases", icon: <Package size={12} />, shortcut: "E", cmd: "list_helm_releases" },
 ];
 
 // Get icon for any resource (common or other)
@@ -68,6 +69,7 @@ export const COLUMNS = {
   cronjobs: ["name", "namespace", "schedule", "suspend", "last_schedule", "age"],
   jobs: ["name", "namespace", "completions", "parallelism", "duration", "conditions", "age"],
   hpas: ["name", "namespace", "min", "max", "replicas", "target", "age"],
+  helm: ["name", "namespace", "chart", "version", "status", "revision", "updated"],
 };
 
 // Fallback columns for unknown resource types
@@ -89,6 +91,7 @@ export const DETAIL_TABS_MAP = {
   cronjobs: ["info", "yaml", "events", "describe", "graph"],
   jobs: ["info", "yaml", "events", "describe", "graph"],
   hpas: ["info", "yaml", "describe", "graph"],
+  helm: [],
   default: ["info", "yaml", "graph"],
 };
 

@@ -14,6 +14,7 @@ pub(crate) mod rollout;
 pub(crate) mod dashboard;
 pub(crate) mod metrics;
 pub(crate) mod discovery;
+pub(crate) mod helm;
 
 // Re-export public API consumed by commands/ and watchers/
 pub(crate) use metrics::{get_pod_metrics, ContainerMetrics};
@@ -30,3 +31,4 @@ pub(crate) use logs::{get_pod_logs, stream_pod_logs, PodLogsResponse};
 pub(crate) use rollout::{rollout_action, RolloutResponse};
 pub(crate) use resources::{DaemonSetInfo, CronJobInfo, JobInfo, HpaInfo};
 pub(crate) use discovery::{discover_resources, list_resource, DiscoveredResource};
+pub(crate) use helm::{list_helm_releases, HelmReleaseInfo};
