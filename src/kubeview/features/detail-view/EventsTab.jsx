@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { k8sInvoke } from "../../api";
+import { exportContent } from "../../api/export";
 import { mono } from "../../theme";
 import { Spinner } from "../../components/ui/Spinner";
 
@@ -29,9 +30,53 @@ export function EventsTab({ obj, clusterId }) {
   useEffect(() => { load(); }, [load]);
 
   const items = events?.events || [];
+  const eventsText = items.length
+    ? items.map((ev) =>
+        `[${ev.type}] ${ev.reason} (${ev.age})\n  From: ${ev.from}\n  Message: ${ev.message}`
+      ).join("\n\n")
+    : "No events";
 
   return (
-    <div style={{ flex: 1, overflowY: "auto" }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "5px 10px",
+          background: "#050910",
+          borderBottom: "1px solid #0e1f2e",
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ color: "#7dd3fc", ...mono, fontSize: "0.67rem" }}>
+          events
+        </span>
+        {fetching && <Spinner />}
+        <div style={{ flex: 1 }} />
+        <button
+          type="button"
+          onClick={() => exportContent(
+            eventsText,
+            `${obj.name}_events.txt`,
+            [{ name: "Text", extensions: ["txt"] }],
+          )}
+          style={{
+            background: "none",
+            border: "1px solid #0e1f2e",
+            borderRadius: 3,
+            color: "#4a7a8a",
+            cursor: "pointer",
+            padding: "2px 7px",
+            ...mono,
+            fontSize: "0.67rem",
+          }}
+          title="Export to file"
+        >
+          ⬇ export
+        </button>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", ...mono, fontSize: "0.71rem" }}>
         <thead>
           <tr style={{ position: "sticky", top: 0, background: "#050910" }}>
@@ -95,6 +140,7 @@ export function EventsTab({ obj, clusterId }) {
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

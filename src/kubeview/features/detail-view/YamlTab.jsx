@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { applyYaml, k8sInvoke } from "../../api";
+import { exportContent } from "../../api/export";
 import { mono } from "../../theme";
 import { Spinner } from "../../components/ui/Spinner";
 
@@ -107,6 +108,27 @@ export function YamlTab({ obj, type, clusterId }) {
               }}
             >
               {hideMF ? "show managed fields" : "hide managed fields"}
+            </button>
+            <button
+              type="button"
+              onClick={() => exportContent(
+                yaml?.yaml || "",
+                `${type}_${obj.name}.yaml`,
+                [{ name: "YAML", extensions: ["yaml"] }],
+              )}
+              style={{
+                background: "none",
+                border: "1px solid #0e1f2e",
+                borderRadius: 3,
+                color: "#4a7a8a",
+                cursor: "pointer",
+                padding: "2px 7px",
+                ...mono,
+                fontSize: "0.67rem",
+              }}
+              title="Export to file"
+            >
+              ⬇ export
             </button>
             <button
               type="button"

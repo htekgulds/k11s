@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { k8sInvoke } from "../../api";
+import { exportContent } from "../../api/export";
 import { mono } from "../../theme";
 import { Spinner } from "../../components/ui/Spinner";
 
@@ -44,6 +45,28 @@ export function DescribeTab({ obj, clusterId }) {
           describe
         </span>
         {fetching && <Spinner />}
+        <div style={{ flex: 1 }} />
+        <button
+          type="button"
+          onClick={() => exportContent(
+            describe || "",
+            `${obj.name}_describe.txt`,
+            [{ name: "Text", extensions: ["txt"] }],
+          )}
+          style={{
+            background: "none",
+            border: "1px solid #0e1f2e",
+            borderRadius: 3,
+            color: "#4a7a8a",
+            cursor: "pointer",
+            padding: "2px 7px",
+            ...mono,
+            fontSize: "0.67rem",
+          }}
+          title="Export to file"
+        >
+          ⬇ export
+        </button>
       </div>
       <div
         style={{
