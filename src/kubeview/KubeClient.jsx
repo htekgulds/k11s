@@ -424,6 +424,9 @@ export default function KubeClient() {
         onCloseTab={closeTab}
         onOpenPalette={() => setCmdOpen(true)}
         clock={clock}
+        activeNamespace={getTF(activeClusterId).namespace || "All"}
+        onNamespaceChange={(ns) => setTF(activeClusterId, { namespace: ns })}
+        data={data}
       />
 
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>

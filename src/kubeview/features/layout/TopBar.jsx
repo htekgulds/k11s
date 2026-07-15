@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Hexagon, X, Command } from "lucide-react";
 import { mono } from "../../theme";
 import { ClusterDropdown } from "./ClusterDropdown";
+import { NamespaceSwitcher } from "./NamespaceSwitcher";
 
 export function TopBar({
   clusters,
@@ -12,6 +13,9 @@ export function TopBar({
   onCloseTab,
   onOpenPalette,
   clock,
+  activeNamespace,
+  onNamespaceChange,
+  data,
 }) {
   const detailTabs = clusterState.tabs.filter((t) => t.type === "detail");
   const scrollRef = useRef(null);
@@ -61,6 +65,11 @@ export function TopBar({
         clusters={clusters}
         activeCluster={activeCluster}
         onSwitch={onSwitchCluster}
+      />
+      <NamespaceSwitcher
+        activeNamespace={activeNamespace}
+        onNamespaceChange={onNamespaceChange}
+        data={data}
       />
       <div
         ref={scrollRef}
