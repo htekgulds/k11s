@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Plus } from "lucide-react";
 import { COLUMNS, getColumns } from "../../constants";
 import { mono } from "../../theme";
 import { nsColor } from "../../utils/colors";
@@ -7,6 +7,7 @@ import { Pill } from "../../components/ui/Pill";
 import { Spinner } from "../../components/ui/Spinner";
 import { StatusDot } from "../../components/ui/StatusDot";
 import { deleteResource } from "../../api";
+import { CreateCronJobModal } from "./CreateCronJobModal";
 
 export function ResourceListTab({
   type,
@@ -146,6 +147,7 @@ export function ResourceListTab({
   // Right-click context menu
   const [ctxMenu, setCtxMenu] = useState(null);
   const [delConfirm, setDelConfirm] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   useEffect(() => {
     if (!ctxMenu) return;
     const close = () => setCtxMenu(null);
@@ -247,26 +249,49 @@ export function ResourceListTab({
             </div>
           )}
         </div>
-        <button
-          type="button"
-          onClick={onRefresh}
-          style={{
-            marginLeft: "auto",
-            background: "none",
-            border: "1px solid #0e1f2e",
-            borderRadius: 3,
-            color: "#39ff8a",
-            cursor: "pointer",
-            padding: "2px 7px",
-            ...mono,
-            fontSize: "0.67rem",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-          }}
-        >
-          {loading ? <Spinner /> : "↻"} refresh
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, marginLeft: "auto" }}>
+          {type === "cronjobs" && (
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              title="Create CronJob"
+              style={{
+                background: "none",
+                border: "1px solid #0e1f2e",
+                borderRadius: 3,
+                color: "#39ff8a",
+                cursor: "pointer",
+                padding: "2px 7px",
+                ...mono,
+                fontSize: "0.67rem",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <Plus size={12} /> create
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onRefresh}
+            style={{
+              background: "none",
+              border: "1px solid #0e1f2e",
+              borderRadius: 3,
+              color: "#39ff8a",
+              cursor: "pointer",
+              padding: "2px 7px",
+              ...mono,
+              fontSize: "0.67rem",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            {loading ? <Spinner /> : "↻"} refresh
+          </button>
+        </div>
       </div>
       {loading ? (
         <div
@@ -496,6 +521,12 @@ export function ResourceListTab({
           </div>
         </div>
       )}
+      <CreateCronJobModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        clusterId={clusterId}
+        namespace={namespace}
+      />
     </div>
   );
 }
