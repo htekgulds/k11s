@@ -6,6 +6,7 @@ export {
 export {
   k8sInvoke, discoverResources, listResource,
   deleteResource, rolloutAction, applyYaml,
+  readDroppedFile,
 } from "./resources";
 
 export {

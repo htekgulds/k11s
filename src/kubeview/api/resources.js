@@ -24,6 +24,10 @@ export async function rolloutAction(clusterId, kind, name, namespace, action) {
   return invoke("rollout_action", { context: clusterId ?? null, kind, name, namespace, action });
 }
 
-export function applyYaml(context, yamlContent) {
-  return invoke("apply_yaml", { context: context ?? null, yamlContent });
+export function applyYaml(context, yamlContent, namespace) {
+  return invoke("apply_yaml", { context: context ?? null, yamlContent, namespace: namespace ?? null });
+}
+
+export function readDroppedFile(path) {
+  return invoke("read_dropped_file", { path });
 }

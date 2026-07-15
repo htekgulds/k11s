@@ -145,6 +145,7 @@ pub(crate) async fn get_yaml(
 pub(crate) async fn apply_yaml(
     context: Option<String>,
     yaml_content: String,
+    namespace_override: Option<String>,
 ) -> Result<String, String> {
     use kube::api::{Patch, PatchParams};
     use kube::core::{DynamicObject, GroupVersionKind};
@@ -153,8 +154,20 @@ pub(crate) async fn apply_yaml(
     let client = make_client(context).await?;
 
     // Parse YAML to JSON Value
-    let value: serde_json::Value = serde_yaml::from_str(&yaml_content)
+    let mut value: serde_json::Value = serde_yaml::from_str(&yaml_content)
         .map_err(|e| format!("Failed to parse YAML: {e}"))?;
+
+    // Override namespace if provided
+    if let Some(ref ns) = namespace_override {
+        if ns.is_empty() {
+            // Remove namespace for cluster-scoped intent
+            if let Some(meta) = value.get_mut("metadata").and_then(|m| m.as_object_mut()) {
+                meta.remove("namespace");
+            }
+        } else {
+            value["metadata"]["namespace"] = serde_json::Value::String(ns.clone());
+        }
+    }
 
     // Clone extracted strings before moving value
     let api_version = value["apiVersion"]

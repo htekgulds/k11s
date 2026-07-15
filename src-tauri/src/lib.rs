@@ -15,7 +15,7 @@ use commands::logs::{get_pod_logs, start_log_stream, stop_log_stream};
 use commands::port_forward::{start_port_forward, stop_port_forward, list_port_forwards};
 use commands::exec::{exec_pod_shell, exec_pod_stdin, exec_pod_stop};
 use commands::rollout::rollout_action;
-use commands::yaml::{get_yaml, apply_yaml};
+use commands::yaml::{get_yaml, apply_yaml, read_dropped_file};
 use commands::describe::describe_resource;
 use commands::delete::delete_resource;
 use commands::events::get_events;
@@ -130,6 +130,7 @@ pub fn run() {
             // YAML / describe / delete
             get_yaml,
             apply_yaml,
+            read_dropped_file,
             describe_resource,
             delete_resource,
             get_events,
