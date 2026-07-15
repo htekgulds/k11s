@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Plus } from "lucide-react";
 import { mono } from "./theme";
 import { defaultNavState, COMMON_RESOURCES } from "./constants";
@@ -9,6 +10,7 @@ import {
   addKubeconfig, addKubeconfigByPath,
   k8sInvoke, listResource, discoverResources,
   startWatchers, stopWatchers, onResourceUpdate,
+  readDroppedFile,
 } from "./api";
 
 import { useClustersStore } from "./stores";
@@ -25,6 +27,8 @@ import { StatusBar } from "./features/layout/StatusBar";
 import { DetailView } from "./features/detail-view/DetailView";
 import { ResourceListTab } from "./features/resource-list/ResourceListTab";
 import { Dashboard } from "./features/dashboard/Dashboard";
+import { DropZoneOverlay } from "./features/yaml-drop/DropZoneOverlay";
+import { YamlPreviewModal } from "./features/yaml-drop/YamlPreviewModal";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -76,6 +80,56 @@ export default function KubeClient() {
   const cmdRef = useRef(null);
   const activeIdRef = useRef(activeClusterId);
   activeIdRef.current = activeClusterId;
+
+  // ── Drag & Drop (YAML apply) ─────────────────────────────────────────────
+
+  const [dropOver, setDropOver] = useState(false);
+  const [droppedFile, setDroppedFile] = useState(null);
+  const [previewContent, setPreviewContent] = useState(null);
+
+  const handleApplyYaml = useCallback(async (content, namespace) => {
+    try {
+      const { applyYaml } = await import("./api");
+      const result = await applyYaml(activeClusterId, content, namespace);
+      addToast(result, "success");
+      setPreviewContent(null);
+      setDroppedFile(null);
+    } catch (e) {
+      addToast(`Apply failed: ${e}`, "error");
+    }
+  }, [activeClusterId, addToast]);
+
+  useEffect(() => {
+    let unlisten = null;
+    (async () => {
+      try {
+        const win = getCurrentWindow();
+        unlisten = await win.onDragDropEvent(async (event) => {
+          if (event.payload.type === "over") {
+            setDropOver(true);
+          } else if (event.payload.type === "leave") {
+            setDropOver(false);
+          } else if (event.payload.type === "drop") {
+            setDropOver(false);
+            const paths = event.payload.paths;
+            if (paths && paths.length > 0) {
+              const filePath = paths[0];
+              setDroppedFile(filePath);
+              try {
+                const content = await readDroppedFile(filePath);
+                setPreviewContent(content);
+              } catch (e) {
+                addToast(`Failed to read file: ${e}`, "error");
+              }
+            }
+          }
+        });
+      } catch (e) {
+        console.warn("Drag-drop listener unavailable:", e);
+      }
+    })();
+    return () => { if (unlisten) unlisten(); };
+  }, [addToast]);
 
   // ── Derived data ─────────────────────────────────────────────────────────
 
@@ -426,6 +480,17 @@ export default function KubeClient() {
         onClose={() => { setCmdOpen(false); setCmdQuery(""); }}
       />
       <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
+      <DropZoneOverlay isDragging={dropOver} />
+      {previewContent && (
+        <YamlPreviewModal
+          open={true}
+          yamlContent={previewContent}
+          fileName={droppedFile}
+          clusterId={activeClusterId}
+          onClose={() => { setPreviewContent(null); setDroppedFile(null); }}
+        />
+      )}
 
       <TopBar
         clusters={clusters}
