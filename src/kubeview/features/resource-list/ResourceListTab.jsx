@@ -8,6 +8,7 @@ import { Spinner } from "../../components/ui/Spinner";
 import { StatusDot } from "../../components/ui/StatusDot";
 import { deleteResource } from "../../api";
 import { CreateCronJobModal } from "./CreateCronJobModal";
+import { CreateJobModal } from "./CreateJobModal";
 
 export function ResourceListTab({
   type,
@@ -148,6 +149,7 @@ export function ResourceListTab({
   const [ctxMenu, setCtxMenu] = useState(null);
   const [delConfirm, setDelConfirm] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateJobModal, setShowCreateJobModal] = useState(false);
   useEffect(() => {
     if (!ctxMenu) return;
     const close = () => setCtxMenu(null);
@@ -255,6 +257,28 @@ export function ResourceListTab({
               type="button"
               onClick={() => setShowCreateModal(true)}
               title="Create CronJob"
+              style={{
+                background: "none",
+                border: "1px solid #0e1f2e",
+                borderRadius: 3,
+                color: "#39ff8a",
+                cursor: "pointer",
+                padding: "2px 7px",
+                ...mono,
+                fontSize: "0.67rem",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <Plus size={12} /> create
+            </button>
+          )}
+          {type === "jobs" && (
+            <button
+              type="button"
+              onClick={() => setShowCreateJobModal(true)}
+              title="Create Job"
               style={{
                 background: "none",
                 border: "1px solid #0e1f2e",
@@ -524,6 +548,12 @@ export function ResourceListTab({
       <CreateCronJobModal
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
+        clusterId={clusterId}
+        namespace={namespace}
+      />
+      <CreateJobModal
+        open={showCreateJobModal}
+        onClose={() => setShowCreateJobModal(false)}
         clusterId={clusterId}
         namespace={namespace}
       />
