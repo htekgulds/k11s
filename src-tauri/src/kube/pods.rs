@@ -6,6 +6,12 @@ use serde::Serialize;
 use crate::kube::client::{fmt_age, make_client};
 
 #[derive(Debug, Clone, Serialize)]
+pub(crate) struct ContainerInfo {
+    pub name: String,
+    pub image: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub(crate) struct PodInfo {
     pub name: String,
     pub namespace: String,
@@ -16,6 +22,7 @@ pub(crate) struct PodInfo {
     pub ip: String,
     pub image: String,
     pub age: String,
+    pub containers: Vec<ContainerInfo>,
 }
 
 pub(crate) fn pod_status(pod: &Pod) -> String {
@@ -87,6 +94,12 @@ pub(crate) fn pod_to_info(pod: Pod) -> PodInfo {
         ip: pod.status.as_ref().and_then(|s| s.pod_ip.clone()).unwrap_or_default(),
         image: first_container_image(&pod),
         age: fmt_age(&pod.metadata.creation_timestamp),
+        containers: pod.spec.as_ref().map(|s| {
+            s.containers.iter().map(|c| ContainerInfo {
+                name: c.name.clone(),
+                image: c.image.clone().unwrap_or_default(),
+            }).collect()
+        }).unwrap_or_default(),
     }
 }
 

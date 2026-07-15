@@ -12,10 +12,12 @@ pub(crate) mod exec;
 pub(crate) mod logs;
 pub(crate) mod rollout;
 pub(crate) mod dashboard;
+pub(crate) mod metrics;
 pub(crate) mod discovery;
 
 // Re-export public API consumed by commands/ and watchers/
-pub(crate) use pods::{list_pods, PodInfo};
+pub(crate) use metrics::{get_pod_metrics, ContainerMetrics};
+pub(crate) use pods::{list_pods, PodInfo, ContainerInfo};
 pub(crate) use nodes::list_nodes;
 pub(crate) use events::{get_events, EventsResponse};
 pub(crate) use yaml::{get_yaml, apply_yaml, YamlResponse};

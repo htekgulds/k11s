@@ -12,4 +12,5 @@ pub(crate) mod delete;
 pub(crate) mod health;
 pub(crate) mod dashboard;
 pub(crate) mod export;
+pub(crate) mod metrics;
 pub(crate) mod discovery;

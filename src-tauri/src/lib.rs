@@ -20,6 +20,7 @@ use commands::describe::describe_resource;
 use commands::delete::delete_resource;
 use commands::events::get_events;
 use commands::export::export_to_file;
+use commands::metrics::get_pod_metrics;
 use commands::dashboard::get_cluster_dashboard;
 use commands::discovery::{discover_resources, list_resource};
 
@@ -140,6 +141,8 @@ pub fn run() {
             list_resource,
             // Dashboard
             get_cluster_dashboard,
+            // Metrics
+            get_pod_metrics,
             // Export
             export_to_file,
             // Watchers

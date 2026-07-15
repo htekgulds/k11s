@@ -19,3 +19,7 @@ export {
 export {
   getClusterDashboard,
 } from "./dashboard";
+
+export {
+  getPodMetrics,
+} from "./metrics";
