@@ -24,6 +24,7 @@ use commands::metrics::get_pod_metrics;
 use commands::dashboard::get_cluster_dashboard;
 use commands::discovery::{discover_resources, list_resource};
 use commands::helm::list_helm_releases;
+use commands::pv_usage::list_pv_usage;
 
 // ── Cluster management commands (inline — thin wrappers over clusters module) ─
 
@@ -143,6 +144,8 @@ pub fn run() {
             list_resource,
             // Helm releases
             list_helm_releases,
+            // PV/PVC usage
+            list_pv_usage,
             // Dashboard
             get_cluster_dashboard,
             // Metrics
