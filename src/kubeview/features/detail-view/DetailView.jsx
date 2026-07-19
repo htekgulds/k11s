@@ -8,6 +8,8 @@ import { EventsTab } from "./EventsTab";
 import { DescribeTab } from "./DescribeTab";
 import { GraphTab } from "./GraphTab";
 import { MetricsTab } from "./MetricsTab";
+import { ConfigDataTab } from "./ConfigDataTab";
+import { IngressRulesTab } from "./IngressRulesTab";
 import { DetailHeader } from "./DetailHeader";
 import { DetailTabs } from "./DetailTabs";
 
@@ -39,7 +41,9 @@ export function DetailView({ obj, type, allData, clusterId, onNavigate }) {
         {subTab === "yaml" && <YamlTab obj={obj} type={type} clusterId={clusterId} />}
         {subTab === "events" && <EventsTab obj={obj} clusterId={clusterId} />}
         {subTab === "describe" && <DescribeTab obj={obj} clusterId={clusterId} />}
+        {subTab === "data" && <ConfigDataTab kind={type} name={obj.name} namespace={obj.namespace} clusterId={clusterId} />}
         {subTab === "graph" && <GraphTab graph={graph} allData={allData} onNavigate={onNavigate} />}
+        {subTab === "rules" && <IngressRulesTab clusterId={clusterId} />}
       </div>
     </div>
   );

@@ -16,6 +16,8 @@ pub(crate) mod metrics;
 pub(crate) mod discovery;
 pub(crate) mod helm;
 pub(crate) mod pv_usage;
+pub(crate) mod ingress_rules;
+pub(crate) mod config_data;
 
 // Re-export public API consumed by commands/ and watchers/
 pub(crate) use metrics::{get_pod_metrics, ContainerMetrics};
@@ -34,3 +36,5 @@ pub(crate) use resources::{DaemonSetInfo, CronJobInfo, JobInfo, HpaInfo, PvInfo}
 pub(crate) use discovery::{discover_resources, list_resource, DiscoveredResource};
 pub(crate) use helm::{list_helm_releases, HelmReleaseInfo};
 pub(crate) use pv_usage::{list_pv_usage, PvUsageInfo};
+pub(crate) use ingress_rules::{list_ingress_rules, IngressRuleInfo};
+pub(crate) use config_data::{list_config_data, ConfigDataEntry};

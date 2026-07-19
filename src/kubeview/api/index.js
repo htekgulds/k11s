@@ -32,3 +32,11 @@ export {
 export {
   listPvUsage,
 } from "./pvUsage";
+
+export {
+  listIngressRules,
+} from "./ingressRules";
+
+export {
+  listConfigData,
+} from "./configData";

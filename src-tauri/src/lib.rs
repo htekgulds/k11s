@@ -25,6 +25,8 @@ use commands::dashboard::get_cluster_dashboard;
 use commands::discovery::{discover_resources, list_resource};
 use commands::helm::list_helm_releases;
 use commands::pv_usage::list_pv_usage;
+use commands::ingress_rules::list_ingress_rules;
+use commands::config_data::list_config_data;
 
 // ── Cluster management commands (inline — thin wrappers over clusters module) ─
 
@@ -146,6 +148,10 @@ pub fn run() {
             list_helm_releases,
             // PV/PVC usage
             list_pv_usage,
+            // Ingress rules
+            list_ingress_rules,
+            // ConfigMap/Secret data view
+            list_config_data,
             // Dashboard
             get_cluster_dashboard,
             // Metrics

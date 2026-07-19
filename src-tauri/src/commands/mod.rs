@@ -16,3 +16,5 @@ pub(crate) mod metrics;
 pub(crate) mod discovery;
 pub(crate) mod helm;
 pub(crate) mod pv_usage;
+pub(crate) mod ingress_rules;
+pub(crate) mod config_data;
