@@ -1,22 +1,23 @@
-import { STATUS_COLOR, mono } from "../../theme";
+import { cn } from "../../utils/cn";
+import { STATUS_COLOR } from "../../theme";
 
 export function StatusDot({ status }) {
   const c = STATUS_COLOR[status] || "#556";
   const pulse = status === "Running" || status === "Ready" || status === "Bound";
+
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+    <span className={cn("inline-flex items-center gap-1")}>
       <span
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          background: c,
-          boxShadow: `0 0 5px ${c}55`,
-          flexShrink: 0,
-          animation: pulse ? "pulse 2.5s infinite" : "none",
-        }}
+        className={cn(
+          "w-1.5 h-1.5 rounded-full flex-shrink-0",
+          "shadow-[0_0_5px_]",
+          pulse ? "animate-pulse" : ""
+        )}
+        style={{ background: c, boxShadow: `0 0 5px ${c}55` }}
       />
-      <span style={{ color: c, ...mono, fontSize: "0.77rem", fontWeight: 700 }}>{status || "—"}</span>
+      <span className={cn("font-mono text-[0.77rem] font-bold", `text-[${c}]`)}>
+        {status || "—"}
+      </span>
     </span>
   );
 }

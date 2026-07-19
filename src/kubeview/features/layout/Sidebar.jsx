@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Plus, FileInput, ChevronDown, ChevronRight, LayoutDashboard } from "lucide-react";
 import { COMMON_RESOURCES, getResourceIcon } from "../../constants";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 import { PortForwardPanel } from "../port-forward/PortForwardPanel";
 
 export function Sidebar({
@@ -19,8 +19,6 @@ export function Sidebar({
   const [showManualInput, setShowManualInput] = useState(false);
   const [otherOpen, setOtherOpen] = useState(false);
 
-  const otherResources = (discoveredResources || []).filter((r) => !r.is_common);
-
   const handleSubmitManualPath = async () => {
     const trimmed = manualPath.trim();
     if (!trimmed) return;
@@ -33,55 +31,46 @@ export function Sidebar({
     }
   };
 
-  const itemStyle = (isAct, isOpen) => ({
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    background: isAct ? "#080e18" : "none",
-    border: "none",
-    borderLeft: isAct
-      ? `2px solid ${clustersColor}`
-      : isOpen
-        ? `2px solid ${clustersColor}55`
-        : "2px solid transparent",
-    color: isAct ? "#bdd" : isOpen ? "#4a7a8a" : "#2d4a6a",
-    padding: "6px 9px 6px 10px",
-    cursor: "pointer",
-    ...mono,
-    fontSize: "0.71rem",
-    width: "100%",
-    textAlign: "left",
-  });
+  const otherResources = (discoveredResources || []).filter((r) => !r.is_common);
 
   const resourceButton = (plural, label) => {
     const count = (data[plural] || []).length;
     const hasErr = (data[plural] || []).some((r) =>
-      ["CrashLoopBackOff", "NotReady", "Error"].includes(r.status),
+      ["CrashLoopBackOff", "NotReady", "Error"].includes(r.status)
     );
     const isAct = clusterState.activeResource === plural && !clusterState.activeTab;
     const isOpen = clusterState.activeResource === plural && !clusterState.activeTab;
+
     return (
       <button
         key={plural}
         type="button"
         onClick={() => onOpenResource(plural)}
-        style={itemStyle(isAct, isOpen)}
-        onMouseEnter={(e) => {
-          if (!isAct) e.currentTarget.style.background = "#060c14";
-        }}
-        onMouseLeave={(e) => {
-          if (!isAct) e.currentTarget.style.background = "none";
-        }}
+        className={cn(
+          "flex items-center justify-between w-full text-left px-2 py-1.5 font-mono text-[0.71rem]",
+          "transition-colors",
+          isAct
+            ? `bg-[#080e18] border-l-2 border-[${clustersColor}] text-[#bdd]`
+            : isOpen
+            ? `border-l-2 border-[${clustersColor}]/33 text-[#4a7a8a] hover:bg-[#060c14]`
+            : `border-l-2 border-transparent text-[#2d4a6a] hover:bg-[#060c14]`
+        )}
       >
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span className="flex items-center gap-1.5">
           {getResourceIcon(plural)}
           {label}
         </span>
         <span
-          style={{
-            fontSize: "0.62rem",
-            color: hasErr ? "#ff4d4d" : isAct ? clustersColor : isOpen ? "#2d4a6a" : "#0e1f2e",
-          }}
+          className={cn(
+            "text-[0.62rem] font-bold",
+            hasErr
+              ? "text-[#ff4d4d]"
+              : isAct
+              ? `text-[${clustersColor}]`
+              : isOpen
+              ? "text-[#2d4a6a]"
+              : "text-[#0e1f2e]"
+          )}
         >
           {loading[plural] ? "…" : count || ""}
         </span>
@@ -91,157 +80,93 @@ export function Sidebar({
 
   return (
     <div
-      style={{
-        width: 152,
-        background: "#030710",
-        borderRight: "1px solid #080e18",
-        display: "flex",
-        flexDirection: "column",
-        flexShrink: 0,
-      }}
+      className={cn(
+        "w-[152px] h-full flex flex-col flex-shrink-0",
+        "bg-[#030710] border-r border-[#080e18]"
+      )}
     >
-      <div style={{ flex: 1, overflowY: "auto" }}>
+      <div className="flex-1 overflow-y-auto">
         {/* Dashboard */}
         <button
           type="button"
           onClick={() => onOpenResource("dashboard")}
-          style={{
-            ...itemStyle(
-              clusterState.activeResource === "dashboard" && !clusterState.activeTab,
-              false,
-            ),
-            borderTop: "none",
-          }}
-          onMouseEnter={(e) => {
-            if (clusterState.activeResource !== "dashboard")
-              e.currentTarget.style.background = "#060c14";
-          }}
-          onMouseLeave={(e) => {
-            if (clusterState.activeResource !== "dashboard")
-              e.currentTarget.style.background = "none";
-          }}
+          className={cn(
+            "w-full px-2.5 py-1.5 flex items-center gap-1.5 text-left text-[0.71rem] font-mono",
+            "transition-colors border-l-2",
+            clusterState.activeResource === "dashboard" && !clusterState.activeTab
+              ? `bg-[#080e18] border-[${clustersColor}] text-[#bdd]`
+              : `border-transparent text-[#2d4a6a] hover:bg-[#060c14] hover:border-[${clustersColor}]/33`
+          )}
         >
-          <span style={{ display: "flex", alignItems: "center", gap: 6, color: "#39ff8a" }}>
+          <span className="flex items-center gap-1.5 text-[#39ff8a]">
             <LayoutDashboard size={12} />
             Dashboard
           </span>
         </button>
 
-        <div
-          style={{
-            padding: "4px 10px 2px",
-            marginTop: 4,
-            color: "#0e1f2e",
-            ...mono,
-            fontSize: "0.57rem",
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-          }}
-        >
+        <div className="px-2.5 pt-1 pb-0.5 mt-1 text-[0.57rem] uppercase tracking-[0.12em] font-mono text-[#0e1f2e]">
           Resources
         </div>
         {COMMON_RESOURCES.map((rt) => resourceButton(rt.key, rt.label))}
 
         {otherResources.length > 0 && (
           <>
-            <div
-              style={{
-                padding: "2px 6px",
-                borderTop: "1px solid #080e18",
-                marginTop: 2,
-              }}
-            >
+            <div className="px-1.5 pt-0.5 mt-0.5">
               <button
                 type="button"
                 onClick={() => setOtherOpen((v) => !v)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                  background: "none",
-                  border: "none",
-                  color: "#1e3a52",
-                  cursor: "pointer",
-                  ...mono,
-                  fontSize: "0.6rem",
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "4px 4px",
-                }}
+                className={cn(
+                  "w-full flex items-center gap-1 text-left px-1 py-1 text-[0.6rem] font-mono",
+                  "text-[#1e3a52] hover:bg-[#060c14] rounded transition-colors"
+                )}
               >
                 {otherOpen ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
                 Other Resources ({otherResources.length})
               </button>
             </div>
-            {otherOpen &&
-              otherResources.map((r) => resourceButton(r.plural, r.kind || r.plural))}
+            {otherOpen && otherResources.map((r) => resourceButton(r.plural, r.kind || r.plural))}
           </>
         )}
       </div>
 
       <PortForwardPanel clusterId={activeCluster?.id} />
 
-      <div style={{ borderTop: "1px solid #080e18" }}>
+      <div className="border-t border-[#080e18]">
         {showManualInput ? (
-          <div style={{ padding: "6px 8px" }}>
+          <div className="p-2">
             <input
               type="text"
               value={manualPath}
               onChange={(e) => setManualPath(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSubmitManualPath();
-                if (e.key === "Escape") {
-                  setShowManualInput(false);
-                  setManualPath("");
-                }
+                if (e.key === "Escape") { setShowManualInput(false); setManualPath(""); }
               }}
               placeholder="/path/to/kubeconfig"
               autoFocus
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                background: "#080e18",
-                border: "1px solid #0e1f2e",
-                borderRadius: 4,
-                color: "#7dd3fc",
-                padding: "4px 6px",
-                fontFamily: "inherit",
-                fontSize: "0.62rem",
-                outline: "none",
-                marginBottom: 4,
-              }}
+              className={cn(
+                "w-full box-border mb-1 rounded px-1.5 py-1 text-[0.62rem] font-mono",
+                "bg-[#080e18] border border-[#0e1f2e] text-[#7dd3fc] outline-none"
+              )}
             />
-            <div style={{ display: "flex", gap: 4 }}>
+            <div className="flex gap-1">
               <button
                 type="button"
                 onClick={handleSubmitManualPath}
-                style={{
-                  flex: 1,
-                  background: "#0e1f2e",
-                  border: "1px solid #1a3a4a",
-                  borderRadius: 4,
-                  color: "#39ff8a",
-                  cursor: "pointer",
-                  padding: "3px 6px",
-                  fontSize: "0.6rem",
-                  ...mono,
-                }}
+                className={cn(
+                  "flex-1 px-1.5 py-0.75 rounded text-[0.6rem] font-mono cursor-pointer",
+                  "bg-[#0e1f2e] border border-[#1a3a4a] text-[#39ff8a]"
+                )}
               >
                 Add
               </button>
               <button
                 type="button"
                 onClick={() => { setShowManualInput(false); setManualPath(""); }}
-                style={{
-                  background: "none",
-                  border: "1px solid #1a2030",
-                  borderRadius: 4,
-                  color: "#4a7a8a",
-                  cursor: "pointer",
-                  padding: "3px 6px",
-                  fontSize: "0.6rem",
-                  ...mono,
-                }}
+                className={cn(
+                  "px-1.5 py-0.75 rounded text-[0.6rem] font-mono cursor-pointer",
+                  "bg-transparent border border-[#1a2030] text-[#4a7a8a]"
+                )}
               >
                 Cancel
               </button>
@@ -252,23 +177,11 @@ export function Sidebar({
             <button
               type="button"
               onClick={onAddCluster}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                background: "none",
-                border: "none",
-                borderBottom: "1px solid #080e18",
-                color: "#4a7a8a",
-                padding: "8px 10px",
-                cursor: "pointer",
-                ...mono,
-                fontSize: "0.71rem",
-                width: "100%",
-                textAlign: "left",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "#060c14"; e.currentTarget.style.color = "#bdd"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "#4a7a8a"; }}
+              className={cn(
+                "w-full flex items-center gap-1.5 px-2.5 py-2 text-left text-[0.71rem] font-mono",
+                "text-[#4a7a8a] hover:bg-[#060c14] hover:text-[#bdd]",
+                "border-b border-[#080e18] transition-colors"
+              )}
             >
               <Plus size={14} />
               Add Cluster
@@ -276,25 +189,14 @@ export function Sidebar({
             <button
               type="button"
               onClick={() => setShowManualInput(true)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                background: "none",
-                border: "none",
-                color: "#1e3a52",
-                padding: "6px 10px",
-                cursor: "pointer",
-                ...mono,
-                fontSize: "0.65rem",
-                width: "100%",
-                textAlign: "left",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "#060c14"; e.currentTarget.style.color = "#4a7a8a"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "#1e3a52"; }}
+              className={cn(
+                "w-full flex items-center gap-1.5 px-2.5 py-1.5 text-left text-[0.65rem] font-mono",
+                "text-[#1e3a52] hover:bg-[#060c14] hover:text-[#4a7a8a]",
+                "transition-colors"
+              )}
             >
               <FileInput size={12} />
-              Type path...
+              Type path…
             </button>
           </>
         )}

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Hexagon, X, Command } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 import { ClusterDropdown } from "./ClusterDropdown";
 import { NamespaceSwitcher } from "./NamespaceSwitcher";
 
@@ -34,38 +34,18 @@ export function TopBar({
   }, [clusterState.tabs.length]);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        height: 38,
-        background: "#030710",
-        borderBottom: "1px solid #080e18",
-        flexShrink: 0,
-        minWidth: 0,
-      }}
-    >
-      <div
-        style={{
-          width: 142,
-          paddingLeft: 12,
-          borderRight: "1px solid #080e18",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          flexShrink: 0,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "'Rajdhani', sans-serif",
-            fontWeight: 700,
-            fontSize: "1rem",
-            color: "#39ff8a",
-            letterSpacing: "0.15em",
-          }}
-        >
-          <Hexagon size={18} style={{ verticalAlign: "middle", marginRight: 4 }} /> k11s
+    <div className={cn(
+      "flex items-center h-[38px] flex-shrink-0 min-w-0",
+      "bg-[#030710] border-b border-[#080e18]"
+    )}>
+      <div className={cn(
+        "w-[142px] px-3 border-r border-[#080e18] h-full flex items-center flex-shrink-0"
+      )}>
+        <span className={cn(
+          "font-rajdhani font-bold text-[1rem] tracking-[0.15em] flex items-center gap-1",
+          "text-[#39ff8a]"
+        )}>
+          <Hexagon size={18} style={{ verticalAlign: "middle" }} /> k11s
         </span>
       </div>
       <ClusterDropdown
@@ -81,32 +61,27 @@ export function TopBar({
 
       {/* Contextual filter — only when a resource list is active */}
       {showFilter && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px", flexShrink: 0 }}>
+        <div className="flex items-center gap-1.5 px-2.5 flex-shrink-0">
           <input
             ref={filterRef}
             value={filterValue}
             onChange={(e) => onFilterChange(e.target.value)}
             placeholder="filter…"
-            style={{
-              background: "#080e18",
-              border: "1px solid #0e1f2e",
-              borderRadius: 3,
-              color: "#bcc",
-              padding: "2px 8px",
-              ...mono,
-              fontSize: "0.68rem",
-              outline: "none",
-              width: 130,
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") onFilterChange("");
-            }}
+            className={cn(
+              "px-2 py-0.5 rounded text-[0.68rem] font-mono outline-none w-[130px]",
+              "bg-[#080e18] border border-[#0e1f2e] text-[#bcc]",
+              "focus:border-[#39ff8a]"
+            )}
+            onKeyDown={(e) => { if (e.key === "Escape") onFilterChange(""); }}
           />
           {filterValue && (
             <button
               type="button"
               onClick={() => onFilterChange("")}
-              style={{ background: "none", border: "none", color: "#1e3a52", cursor: "pointer", fontSize: "0.7rem", padding: 0 }}
+              className={cn(
+                "text-[0.7rem] cursor-pointer p-0",
+                "text-[#1e3a52] hover:text-[#39ff8a]"
+              )}
             >
               ✕
             </button>
@@ -116,10 +91,8 @@ export function TopBar({
 
       <div
         ref={scrollRef}
-        onWheel={(e) => {
-          scrollRef.current.scrollLeft += e.deltaY;
-        }}
-        style={{ display: "flex", flex: 1, overflowX: "auto", overflowY: "hidden", height: "100%", minWidth: 0 }}
+        onWheel={(e) => { scrollRef.current.scrollLeft += e.deltaY; }}
+        className="flex-1 overflow-x-auto overflow-y-hidden h-full min-w-0 flex"
       >
         {detailTabs.map((tab) => {
           const isAct = clusterState.activeTab === tab.id;
@@ -132,42 +105,30 @@ export function TopBar({
               type="button"
               onClick={() => onTabClick(tab.id)}
               onMouseDown={(e) => { if (e.button === 1) onCloseTab(tab.id, e); }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                background: isAct ? "#060a10" : "none",
-                border: "none",
-                borderBottom: isAct ? `2px solid ${tabColor}` : "2px solid transparent",
-                borderLeft: 'none',
-                borderRight: "1px solid #080e18",
-                color: isAct ? "#ccd" : tabErr ? "#ff5555" : "#2d4a6a",
-                padding: "0 12px",
-                height: "100%",
-                cursor: "pointer",
-                ...mono,
-                fontSize: "0.7rem",
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-                maxWidth: 180,
-                transition: "all 0.08s",
-              }}
+              className={cn(
+                "flex items-center gap-1.25 px-3 h-full flex-shrink-0 max-w-[180px]",
+                "font-mono text-[0.7rem] whitespace-nowrap transition-all",
+                "border-b-2 border-r border-[#080e18]",
+                isAct
+                  ? `bg-[#060a10] border-b-[${tabColor}] text-[#ccd]`
+                  : `border-transparent text-[${tabErr ? "#ff5555" : "#2d4a6a"}] hover:bg-[#060c14]`
+              )}
             >
               <span
-                style={{
-                  width: 5,
-                  height: 5,
-                  borderRadius: "50%",
-                  background: tabColor,
-                  flexShrink: 0,
-                  opacity: isAct ? 1 : 0.65,
-                }}
+                className={cn(
+                  "w-1.25 h-1.25 rounded-full flex-shrink-0",
+                  "opacity-65",
+                  isAct && "opacity-100"
+                )}
+                style={{ background: tabColor }}
               />
 
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>
+              <span className="overflow-hidden text-ellipsis flex-1">
                 {tab.namespace ? (
                   <>
-                    <span style={{ color: isAct ? "#4a7a8a" : "#1e3a52" }}>{tab.namespace}/</span>
+                    <span className={cn(isAct ? "text-[#4a7a8a]" : "text-[#1e3a52]")}>
+                      {tab.namespace}/
+                    </span>
                     <span>{tab.name.length > 20 ? `${tab.name.slice(0, 18)}…` : tab.name}</span>
                   </>
                 ) : (
@@ -175,30 +136,19 @@ export function TopBar({
                 )}
               </span>
               {tabErr && (
-                <span
-                  style={{
-                    width: 4,
-                    height: 4,
-                    borderRadius: "50%",
-                    background: "#ff4d4d",
-                    animation: "pulse 1s infinite",
-                    flexShrink: 0,
-                  }}
-                />
+                <span className={cn(
+                  "w-1 h-1 rounded-full flex-shrink-0 animate-pulse",
+                  "bg-[#ff4d4d]"
+                )} />
               )}
               <span
                 role="presentation"
                 onClick={(e) => onCloseTab(tab.id, e)}
-                style={{ color: "#0e1f2e", fontSize: "0.85rem", marginLeft: 4, flexShrink: 0, lineHeight: 1, borderRadius: 3, padding: "0 3px", transition: "all 0.08s" }}
-                onMouseEnter={(e) => {
-                  e.stopPropagation();
-                  e.currentTarget.style.color = "#ff4d4d";
-                  e.currentTarget.style.background = "rgba(255,77,77,0.12)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = "#0e1f2e";
-                  e.currentTarget.style.background = "transparent";
-                }}
+                className={cn(
+                  "text-[0.85rem] ml-1 flex-shrink-0 rounded",
+                  "text-[#0e1f2e] hover:text-[#ff4d4d] hover:bg-[#ff4d4d]/12",
+                  "transition-all p-[0_3px]"
+                )}
               >
                 <X size={14} />
               </span>
@@ -206,24 +156,21 @@ export function TopBar({
           );
         })}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: 12, flexShrink: 0 }}>
+      <div className="flex items-center gap-2 px-3 flex-shrink-0">
         <button
           type="button"
           onClick={onOpenPalette}
-          style={{
-            background: "#0a1018",
-            border: "1px solid #0e1f2e",
-            borderRadius: 3,
-            color: "#1e3a52",
-            padding: "2px 8px",
-            cursor: "pointer",
-            ...mono,
-            fontSize: "0.67rem",
-          }}
+          className={cn(
+            "px-2 py-0.5 rounded text-[0.67rem] font-mono cursor-pointer",
+            "bg-[#0a1018] border border-[#0e1f2e] text-[#1e3a52]",
+            "hover:bg-[#0a1420] hover:border-[#1a3a4a] hover:text-[#39ff8a]"
+          )}
         >
           <Command size={14} />K
         </button>
-        <span style={{ color: "#0e1f2e", ...mono, fontSize: "0.67rem" }}>{clock.toLocaleTimeString()}</span>
+        <span className={cn("font-mono text-[0.67rem]", "text-[#0e1f2e]")}>
+          {clock.toLocaleTimeString()}
+        </span>
       </div>
     </div>
   );

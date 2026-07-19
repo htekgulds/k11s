@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { X } from "lucide-react";
+import { cn } from "../../utils/cn";
 
 let toastId = 0;
 
@@ -23,18 +24,7 @@ export function ToastContainer({ toasts, onRemove }) {
   if (!toasts || toasts.length === 0) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: 60,
-        right: 20,
-        zIndex: 9999,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        pointerEvents: "none",
-      }}
-    >
+    <div className={cn("fixed bottom-15 right-5 z-[9999] flex flex-col gap-2 pointer-events-none")}>
       {toasts.map((t) => (
         <ToastItem key={t.id} toast={t} onRemove={onRemove} />
       ))}
@@ -53,46 +43,28 @@ function ToastItem({ toast, onRemove }) {
   }, [toast.id, toast.duration, onRemove]);
 
   const colors = {
-    success: { bg: "#0a2a10", border: "#1a5a20", text: "#39ff8a" },
-    warning: { bg: "#2a2008", border: "#5a4a10", text: "#f5c518" },
-    error: { bg: "#2a0808", border: "#5a1010", text: "#ff6b6b" },
-    info: { bg: "#08202a", border: "#104a5a", text: "#7dd3fc" },
+    success: { bg: "bg-[#0a2a10]", border: "border-[#1a5a20]", text: "text-[#39ff8a]" },
+    warning: { bg: "bg-[#2a2008]", border: "border-[#5a4a10]", text: "text-[#f5c518]" },
+    error: { bg: "bg-[#2a0808]", border: "border-[#5a1010]", text: "text-[#ff6b6b]" },
+    info: { bg: "bg-[#08202a]", border: "border-[#104a5a]", text: "text-[#7dd3fc]" },
   };
 
   const c = colors[toast.type] || colors.info;
 
   return (
     <div
-      style={{
-        background: c.bg,
-        border: `1px solid ${c.border}`,
-        borderRadius: 6,
-        color: c.text,
-        fontFamily: "'JetBrains Mono', monospace",
-        fontSize: "0.72rem",
-        padding: "8px 12px",
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        maxWidth: 400,
-        pointerEvents: "auto",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
-        animation: "toastIn 0.2s ease-out",
-      }}
+      className={cn(
+        "rounded-md p-2 font-mono text-[0.72rem] flex items-center gap-2.5",
+        "max-w-[400px] pointer-events-auto shadow-[0_4px_20px_rgba(0,0,0,0.4)]",
+        "animate-fade-in",
+        c.bg, c.border, c.text
+      )}
     >
-      <span style={{ flex: 1, wordBreak: "break-word" }}>{toast.message}</span>
+      <span className="flex-1 break-words">{toast.message}</span>
       <button
         type="button"
         onClick={() => onRemove(toast.id)}
-        style={{
-          background: "none",
-          border: "none",
-          color: c.text,
-          cursor: "pointer",
-          opacity: 0.6,
-          padding: 0,
-          display: "flex",
-        }}
+        className={cn("p-0 opacity-60 hover:opacity-100 transition-opacity", c.text)}
       >
         <X size={14} />
       </button>
