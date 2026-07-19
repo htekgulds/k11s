@@ -104,13 +104,16 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
               );
             }
             const idx = renderIdx++;
+            const leftColor = item.clusterColor || null;
             return (
               <button
                 key={i}
                 type="button"
                 onClick={() => runItem(item)}
                 style={{
-                  display: "block",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
                   width: "100%",
                   background: selectedIndex === idx ? "#0a1420" : "none",
                   border: "none",
@@ -130,7 +133,15 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
                   if (selectedIndex !== idx) e.currentTarget.style.background = "none";
                 }}
               >
-                {item.label}
+                {leftColor && (
+                  <span style={{
+                    width: 6, height: 6, borderRadius: "50%",
+                    background: leftColor, flexShrink: 0,
+                  }} />
+                )}
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {item.label}
+                </span>
               </button>
             );
           })}

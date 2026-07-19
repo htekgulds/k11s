@@ -307,7 +307,9 @@ export default function KubeClient() {
           const q = cmdQuery.toLowerCase();
           const results = [];
           for (const [cid, cdata] of Object.entries(clusterData)) {
-            const cl = clusters.find((c) => c.id === cid)?.label || cid;
+            const cl = clusters.find((c) => c.id === cid);
+            const clLabel = cl?.label || cid;
+            const clColor = cl?.color || "#666";
             for (const [rtKey, items] of Object.entries(cdata)) {
               if (!Array.isArray(items)) continue;
               const rt = COMMON_RESOURCES.find((r) => r.key === rtKey);
@@ -317,6 +319,8 @@ export default function KubeClient() {
                 if (ss.includes(q)) {
                   results.push({
                     label: `${rtLabel.slice(0, 4)} ${obj.name} ${obj.namespace ? `(${obj.namespace})` : ""}`,
+                    clusterLabel: clLabel,
+                    clusterColor: clColor,
                     clusterId: cid, rt: rtKey, obj,
                   });
                 }
@@ -328,7 +332,7 @@ export default function KubeClient() {
             const bExact = b.obj.name.toLowerCase() === q ? 0 : 1;
             return aExact - bExact || a.obj.name.localeCompare(b.obj.name);
           });
-          return results.slice(0, 20);
+          return results.slice(0, 30);
         })()
       : []),
     [cmdOpen, cmdQuery, clusterData, clusters],
@@ -338,7 +342,13 @@ export default function KubeClient() {
     () => resourceItems.length > 0
       ? [
           ...resourceItems.map((r) => ({
-            label: `📎 ${r.label}`,
+            label: r.clusterLabel
+              ? `${r.label}  — ${r.clusterLabel}`
+              : r.label,
+            clusterColor: r.clusterColor,
+            obj: r.obj,
+            rt: r.rt,
+            clusterId: r.clusterId,
             fn: () => openDetail(r.rt, r.obj, r.clusterId),
           })),
           ...(cmdItems.some((i) => !cmdQuery || i.label.toLowerCase().includes(cmdQuery.toLowerCase()))
