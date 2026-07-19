@@ -305,17 +305,26 @@ export default function KubeClient() {
     { label: "Close all tabs", fn: () => { setTabs(() => []); setActiveTab(null); } },
   ], [clusters, activeClusterId, switchCluster, openResourceView, fetchResource, setTabs, setActiveTab]);
 
-  // ── MiniSearch index (rebuilds when clusters change) ────────────────────
+  // ── MiniSearch index (incremental updates via ref) ────────────────────
 
-  const searchIndex = useMemo(() => {
-    const miniSearch = new MiniSearch({
-      fields: ["name", "namespace", "type", "cluster"],
-      storeFields: ["clusterId", "rt", "clusterLabel", "clusterColor", "typeShort", "objName", "objNamespace"],
-      idField: "id",
-    });
+  const searchIndexRef = useRef({ miniSearch: null, entries: [], docIdCounter: 0, initialized: false });
 
-    const entries = [];
-    let docId = 0;
+  useEffect(() => {
+    // Initialize MiniSearch on first run
+    if (!searchIndexRef.current.miniSearch) {
+      searchIndexRef.current.miniSearch = new MiniSearch({
+        fields: ["name", "namespace", "type", "cluster"],
+        storeFields: ["clusterId", "rt", "clusterLabel", "clusterColor", "typeShort", "objName", "objNamespace"],
+        idField: "id",
+      });
+    }
+
+    const ms = searchIndexRef.current.miniSearch;
+    const entries = searchIndexRef.current.entries;
+    let docIdCounter = searchIndexRef.current.docIdCounter;
+
+    // Build a map of current resources for diffing
+    const currentResources = new Map();
     for (const [cid, cdata] of Object.entries(clusterData)) {
       const cl = clusters.find((c) => c.id === cid);
       const clLabel = cl?.label || cid;
@@ -325,29 +334,74 @@ export default function KubeClient() {
         const rt = COMMON_RESOURCES.find((r) => r.key === rtKey);
         const rtLabel = rt?.label || rtKey;
         for (const obj of items) {
-          const id = String(docId++);
-          entries.push({
-            id,
-            name: obj.name,
-            namespace: obj.namespace || "",
-            type: rtLabel,
-            cluster: clLabel,
-            clusterId: cid,
-            rt: rtKey,
-            clusterLabel: clLabel,
-            clusterColor: clColor,
-            typeShort: rtLabel.slice(0, 4),
-            objName: obj.name,
-            objNamespace: obj.namespace || "",
-            _obj: obj,
-          });
+          const key = `${cid}:${rtKey}:${obj.namespace || ""}:${obj.name}`;
+          currentResources.set(key, { cid, clLabel, clColor, rtKey, rtLabel, obj });
         }
       }
     }
 
-    if (entries.length > 0) miniSearch.addAll(entries);
-    return { miniSearch, entries };
-  }, [clusterData, clusters]);
+    // Track which docIds are still present
+    const seenDocIds = new Set();
+
+    // Add or update entries
+    for (const [key, res] of currentResources) {
+      let entry = entries.find((e) => e && e.key === key);
+      if (!entry) {
+        // New entry
+        const id = String(docIdCounter++);
+        entry = {
+          id,
+          key,
+          name: res.obj.name,
+          namespace: res.obj.namespace || "",
+          type: res.rtLabel,
+          cluster: res.clLabel,
+          clusterId: res.cid,
+          rt: res.rtKey,
+          clusterLabel: res.clLabel,
+          clusterColor: res.clColor,
+          typeShort: res.rtLabel.slice(0, 4),
+          objName: res.obj.name,
+          objNamespace: res.obj.namespace || "",
+          _obj: res.obj,
+        };
+        entries.push(entry);
+        if (ms) ms.add(entry);
+      } else {
+        // Existing entry - update stored fields if needed
+        entry.name = res.obj.name;
+        entry.namespace = res.obj.namespace || "";
+        entry.type = res.rtLabel;
+        entry.cluster = res.clLabel;
+        entry.clusterLabel = res.clLabel;
+        entry.clusterColor = res.clColor;
+        entry.typeShort = res.rtLabel.slice(0, 4);
+        entry.objName = res.obj.name;
+        entry.objNamespace = res.obj.namespace || "";
+        entry._obj = res.obj;
+        seenDocIds.add(entry.id);
+      }
+      seenDocIds.add(entry.id);
+    }
+
+    // Remove entries no longer present
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const entry = entries[i];
+      if (entry && !seenDocIds.has(entry.id)) {
+        if (ms) ms.discard(entry.id);
+        entries.splice(i, 1);
+      }
+    }
+
+    searchIndexRef.current.docIdCounter = docIdCounter;
+    searchIndexRef.current.initialized = true;
+  }, [clusterData, clusters, COMMON_RESOURCES]);
+
+  // Expose stable reference for search results
+  const searchIndex = useMemo(
+    () => ({ miniSearch: searchIndexRef.current.miniSearch, entries: searchIndexRef.current.entries }),
+    [searchIndexRef.current.initialized, clusterData, clusters],
+  );
 
   // ── Search results via MiniSearch (triggered by deferred query) ────────
 
