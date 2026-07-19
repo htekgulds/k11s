@@ -10,14 +10,17 @@
     "tauri": "WEBKIT_DISABLE_COMPOSITING_MODE=1 tauri"
   },
   "dependencies": {
+    "@tanstack/react-table": "^8.21.3",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2",
+    "clsx": "^2.1.1",
     "lucide-react": "^1.16.0",
     "minisearch": "^7.2.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-hotkeys-hook": "^5.3.2"
+    "react-hotkeys-hook": "^5.3.2",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",

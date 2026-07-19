@@ -1,6 +1,14 @@
-import { useRef, useState, useEffect } from "react";
-import { Trash2, Plus } from "lucide-react";
-import { COLUMNS, getColumns } from "../../constants";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  createColumnHelper,
+  flexRender,
+} from "@tanstack/react-table";
+import { Trash2, Plus, GripVertical } from "lucide-react";
+import { COLUMNS, getColumns, DEFAULT_COLUMNS } from "../../constants";
 import { mono } from "../../theme";
 import { nsColor } from "../../utils/colors";
 import { Pill } from "../../components/ui/Pill";
@@ -9,6 +17,78 @@ import { StatusDot } from "../../components/ui/StatusDot";
 import { deleteResource } from "../../api";
 import { CreateCronJobModal } from "./CreateCronJobModal";
 import { CreateJobModal } from "./CreateJobModal";
+import { cn } from "../../utils/cn";
+
+const columnHelper = createColumnHelper();
+
+// Persistence keys
+const getStorageKeys = (type) => ({
+  visibility: `k11s_cols_${type}`,
+  order: `k11s_order_${type}`,
+  sizing: `k11s_colw_${type}`,
+});
+
+// Load persisted state
+const loadPersisted = (key, fallback) => {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+// Persist state to localStorage
+const persist = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch { /* ignore */ }
+};
+
+// Custom cell renderers
+const CellRenderers = {
+  status: (value) => <StatusDot status={value} />,
+  namespace: (value) => <span className={cn("text-[0.71rem]", nsColor(value))}>{value}</span>,
+  restarts: (value) => {
+    if (value > 5) return <span className="text-[#ff4d4d] font-bold">{value}</span>;
+    if (value > 0) return <span className="text-[#f5c518]">{value}</span>;
+    return <span>{value ?? "—"}</span>;
+  },
+  ready: (value) => value?.startsWith("0")
+    ? <span className="text-[#ff4d4d]">{value}</span>
+    : <span>{value ?? "—"}</span>,
+  name: (value) => <span className="text-[#ccd] font-semibold">{value ?? "—"}</span>,
+  type: (value) => value === "LoadBalancer"
+    ? <Pill label={value} color="#39ff8a" />
+    : <span className="text-[#3a5878]">{value ?? "—"}</span>,
+  external_ip: (value) => value !== "<none>"
+    ? <span className="text-[#f5c518]">{value}</span>
+    : <span className="text-[#3a5878]">{value ?? "—"}</span>,
+  image: (value) => <span className="text-[#7a6aaa] text-[0.69rem]">{value ?? "—"}</span>,
+  default: (value) => <span className="text-[#3a5878]">{String(value ?? "—")}</span>,
+};
+
+// Build column definitions for react-table
+const buildTableColumns = (type) => {
+  const colDefs = getColumns(type);
+  return colDefs.map((col) => {
+    const id = col.id || col;
+    const header = col.header || id.replace(/_/g, " ");
+    const renderer = CellRenderers[id] || CellRenderers.default;
+
+    return columnHelper.accessor(id, {
+      id,
+      header,
+      cell: (info) => renderer(info.getValue(), info.row.original),
+      enableSorting: true,
+      enableResizing: true,
+      enableHiding: true,
+      size: 120,
+      minSize: 60,
+      maxSize: 400,
+    });
+  });
+};
 
 export function ResourceListTab({
   type,
@@ -22,102 +102,100 @@ export function ResourceListTab({
   onRefresh,
   clusterId,
 }) {
-  const [sortCol, setSortCol] = useState(null);
-  const [sortDir, setSortDir] = useState(1);
-  const [hovered, setHovered] = useState(null);
+  const storageKeys = getStorageKeys(type);
+  const allCols = getColumns(type).map(c => c.id || c);
+  const tableColumns = useMemo(() => buildTableColumns(type), [type]);
+
+  // State with persistence
+  const [sorting, setSorting] = useState(() => loadPersisted(storageKeys.order, []));
+  const [columnVisibility, setColumnVisibility] = useState(() =>
+    loadPersisted(storageKeys.visibility, allCols.reduce((acc, c) => ({ ...acc, [c]: true }), {}))
+  );
+  const [columnOrder, setColumnOrder] = useState(() =>
+    loadPersisted(storageKeys.order, null)
+  );
+  const [columnSizing, setColumnSizing] = useState(() =>
+    loadPersisted(storageKeys.sizing, {})
+  );
   const [showColPicker, setShowColPicker] = useState(false);
-  const [dragCol, setDragCol] = useState(null);
   const colPickerRef = useRef(null);
-  const resizeRef = useRef(null);
+  const [ctxMenu, setCtxMenu] = useState(null);
+  const [delConfirm, setDelConfirm] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateJobModal, setShowCreateJobModal] = useState(false);
 
-  // Configurable columns — persisted in localStorage per resource type
-  const allCols = COLUMNS[type] || Object.keys(data[0] || {});
-  const storageKey = `k11s_cols_${type}`;
-  const widthKey = `k11s_colw_${type}`;
-  const orderKey = `k11s_order_${type}`;
-  const [visibleCols, setVisibleCols] = useState(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      return saved ? JSON.parse(saved) : allCols;
-    } catch { return allCols; }
-  });
-  const [colOrder, setColOrder] = useState(() => {
-    try {
-      const saved = localStorage.getItem(orderKey);
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  });
-  const [colWidths, setColWidths] = useState(() => {
-    try {
-      const saved = localStorage.getItem(widthKey);
-      return saved ? JSON.parse(saved) : {};
-    } catch { return {}; }
-  });
+  // Persist changes
+  useEffect(() => persist(storageKeys.order, sorting), [sorting, storageKeys.order]);
+  useEffect(() => persist(storageKeys.visibility, columnVisibility), [columnVisibility, storageKeys.visibility]);
+  useEffect(() => persist(storageKeys.sizing, columnSizing), [columnSizing, storageKeys.sizing]);
+  useEffect(() => persist(storageKeys.order, columnOrder), [columnOrder, storageKeys.order]);
 
-  // Build effective column list: apply order (if saved), then filter visible
-  const orderedCols = colOrder ? colOrder.filter((c) => visibleCols.includes(c)) : visibleCols;
-  const cols = orderedCols.length ? orderedCols : visibleCols;
-
-  // Keep visibleCols/order in sync when allCols changes (type switch)
+  // Sync with allCols changes (type switch)
   useEffect(() => {
-    setVisibleCols((prev) => prev.filter((c) => allCols.includes(c)));
-    setColOrder((prev) => prev ? prev.filter((c) => allCols.includes(c)) : null);
-  }, [type]);
-
-  const toggleCol = (col) => {
-    setVisibleCols((prev) => {
-      const next = prev.includes(col) ? prev.filter((c) => c !== col) : [...prev, col];
-      localStorage.setItem(storageKey, JSON.stringify(next));
+    setColumnVisibility((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((k) => { if (!allCols.includes(k)) delete next[k]; });
+      allCols.forEach((c) => { if (next[c] === undefined) next[c] = true; });
       return next;
     });
-  };
+    setColumnOrder((prev) => prev ? prev.filter((c) => allCols.includes(c)) : null);
+  }, [allCols]);
 
-  // Column reorder — HTML5 drag and drop
-  const handleDragStart = (col) => (e) => {
-    setDragCol(col);
-    e.dataTransfer.effectAllowed = "move";
-  };
-  const handleDragOver = (col) => (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-  const handleDrop = (targetCol) => (e) => {
-    e.preventDefault();
-    if (!dragCol || dragCol === targetCol) return;
-    const reordered = cols.filter((c) => c !== dragCol);
-    const targetIdx = reordered.indexOf(targetCol);
-    reordered.splice(targetIdx, 0, dragCol);
-    setColOrder(reordered);
-    localStorage.setItem(orderKey, JSON.stringify(reordered));
-    setDragCol(null);
-  };
+  // Filter rows
+  const filteredData = useMemo(() => {
+    return data.filter((r) => {
+      const nsOk = !namespace || namespace === "All" || r.namespace === namespace || !r.namespace;
+      const txOk = !filter || Object.values(r).some((v) => String(v).toLowerCase().includes(filter.toLowerCase()));
+      return nsOk && txOk;
+    });
+  }, [data, filter, namespace]);
 
-  // Column resize
-  const startResize = (col, e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const startX = e.clientX;
-    const startW = colWidths[col] || 100;
-    resizeRef.current = { col, startX, startW };
+  // Create the table
+  const table = useReactTable({
+    data: filteredData,
+    columns: tableColumns,
+    state: {
+      sorting,
+      columnVisibility,
+      columnOrder,
+      columnSizing,
+    },
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange: setColumnOrder,
+    onColumnSizingChange: setColumnSizing,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    manualFiltering: true,
+    manualSorting: true,
+  });
 
-    const onMove = (ev) => {
-      if (!resizeRef.current) return;
-      const { col: c, startX: sx, startW: sw } = resizeRef.current;
-      const w = Math.max(40, sw + (ev.clientX - sx));
-      setColWidths((prev) => {
-        const next = { ...prev, [c]: w };
-        localStorage.setItem(widthKey, JSON.stringify(next));
-        return next;
-      });
-    };
-    const onUp = () => {
-      resizeRef.current = null;
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  };
+  // Context menu handlers
+  const handleCtxDelete = useCallback(() => {
+    const row = ctxMenu?.row;
+    if (!row || !clusterId) return;
+    setCtxMenu(null);
+    setDelConfirm(row);
+  }, [ctxMenu, clusterId]);
+
+  const confirmDelete = useCallback(async (row) => {
+    setDelConfirm(null);
+    try {
+      await deleteResource(clusterId, type, row.name, row.namespace || "", null, false);
+      onRefresh();
+    } catch (e) {
+      console.error("Delete failed:", e);
+    }
+  }, [clusterId, type, onRefresh]);
+
+  // Click outside handlers
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [ctxMenu]);
 
   useEffect(() => {
     if (!showColPicker) return;
@@ -128,122 +206,53 @@ export function ResourceListTab({
     return () => window.removeEventListener("mousedown", close);
   }, [showColPicker]);
 
-  const rows = data.filter((r) => {
-    const nsOk = !namespace || namespace === "All" || r.namespace === namespace || !r.namespace;
-    const txOk =
-      !filter || Object.values(r).some((v) => String(v).toLowerCase().includes(filter.toLowerCase()));
-    return nsOk && txOk;
-  });
-  const sorted = sortCol
-    ? [...rows].sort((a, b) => String(a[sortCol]).localeCompare(String(b[sortCol])) * sortDir)
-    : rows;
-  const handleSort = (c) => {
-    if (sortCol === c) setSortDir((d) => -d);
-    else {
-      setSortCol(c);
-      setSortDir(1);
-    }
-  };
-
-  // Right-click context menu
-  const [ctxMenu, setCtxMenu] = useState(null);
-  const [delConfirm, setDelConfirm] = useState(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showCreateJobModal, setShowCreateJobModal] = useState(false);
-  useEffect(() => {
-    if (!ctxMenu) return;
-    const close = () => setCtxMenu(null);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, [ctxMenu]);
-  const ctxAction = (fn) => { fn(); setCtxMenu(null); };
   const kind = type.replace(/s$/, "");
-  const handleCtxDelete = async () => {
-    const row = ctxMenu?.row;
-    if (!row || !clusterId) return;
-    setCtxMenu(null);
-    setDelConfirm(row);
-  };
-  const confirmDelete = async (row) => {
-    setDelConfirm(null);
-    try {
-      await deleteResource(clusterId, type, row.name, row.namespace || "", null, false);
-      onRefresh();
-    } catch (e) {
-      console.error("Delete failed:", e);
-    }
-  };
+
+  if (loading) {
+    return (
+      <div className={cn("flex-1 flex items-center justify-center gap-2", mono, "text-[#39ff8a]")}>
+        <Spinner /> Loading {type}…
+      </div>
+    );
+  }
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 7,
-          padding: "4px 12px",
-          background: "#050910",
-          borderBottom: "1px solid #080e18",
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ color: "#0a1420", ...mono, fontSize: "0.62rem" }}>
-          {(data || []).length} items
-        </span>
-        <div style={{ position: "relative", marginLeft: 4 }} ref={colPickerRef}>
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Toolbar */}
+      <div className={cn(
+        "flex items-center gap-2 px-3 py-1 bg-[#050910] border-b border-[#080e18] flex-shrink-0",
+        mono, "text-[0.62rem] text-[#1e3a52]"
+      )}>
+        <span>{(data || []).length} items</span>
+
+        {/* Column picker */}
+        <div className="relative ml-1" ref={colPickerRef}>
           <button
             type="button"
             onClick={() => setShowColPicker((v) => !v)}
             title="Toggle columns"
-            style={{
-              background: "none",
-              border: "1px solid #0e1f2e",
-              borderRadius: 3,
-              color: "#1e3a52",
-              cursor: "pointer",
-              padding: "2px 7px",
-              ...mono,
-              fontSize: "0.67rem",
-            }}
+            className={cn(
+              "px-2 py-1 rounded border text-[0.67rem] cursor-pointer",
+              "bg-transparent border-[#0e1f2e] text-[#1e3a52]", mono
+            )}
           >
             ☰ cols
           </button>
           {showColPicker && (
-            <div
-              style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                marginTop: 4,
-                background: "#0a0f18",
-                border: "1px solid #0e1f2e",
-                borderRadius: 6,
-                padding: "4px 0",
-                zIndex: 50,
-                minWidth: 150,
-                boxShadow: "0 8px 24px rgba(0,0,0,0.7)",
-              }}
-            >
+            <div className={cn(
+              "absolute top-full left-0 mt-1 rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.7)] z-50 min-w-[150px]",
+              "bg-[#0a0f18] border border-[#0e1f2e] py-1"
+            )}>
               {allCols.map((c) => (
-                <label
-                  key={c}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "5px 14px",
-                    cursor: "pointer",
-                    color: "#4a7a8a",
-                    ...mono,
-                    fontSize: "0.72rem",
-                    userSelect: "none",
-                  }}
-                >
+                <label key={c} className={cn(
+                  "flex items-center gap-2 px-3.5 py-1.5 cursor-pointer text-[0.72rem]",
+                  "text-[#4a7a8a] select-none", mono
+                )}>
                   <input
                     type="checkbox"
-                    checked={visibleCols.includes(c)}
-                    onChange={() => toggleCol(c)}
-                    style={{ accentColor: "#39ff8a" }}
+                    checked={columnVisibility[c]}
+                    onChange={() => setColumnVisibility(v => ({ ...v, [c]: !v[c] }))}
+                    className="accent-[#39ff8a]"
                   />
                   {c.replace(/_/g, " ")}
                 </label>
@@ -251,25 +260,18 @@ export function ResourceListTab({
             </div>
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, marginLeft: "auto" }}>
+
+        {/* Actions */}
+        <div className="ml-auto flex items-center gap-2">
           {type === "cronjobs" && (
             <button
               type="button"
               onClick={() => setShowCreateModal(true)}
               title="Create CronJob"
-              style={{
-                background: "none",
-                border: "1px solid #0e1f2e",
-                borderRadius: 3,
-                color: "#39ff8a",
-                cursor: "pointer",
-                padding: "2px 7px",
-                ...mono,
-                fontSize: "0.67rem",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded border text-[0.67rem] cursor-pointer", mono,
+                "bg-transparent border-[#0e1f2e] text-[#39ff8a]"
+              )}
             >
               <Plus size={12} /> create
             </button>
@@ -279,19 +281,10 @@ export function ResourceListTab({
               type="button"
               onClick={() => setShowCreateJobModal(true)}
               title="Create Job"
-              style={{
-                background: "none",
-                border: "1px solid #0e1f2e",
-                borderRadius: 3,
-                color: "#39ff8a",
-                cursor: "pointer",
-                padding: "2px 7px",
-                ...mono,
-                fontSize: "0.67rem",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded border text-[0.67rem] cursor-pointer", mono,
+                "bg-transparent border-[#0e1f2e] text-[#39ff8a]"
+              )}
             >
               <Plus size={12} /> create
             </button>
@@ -299,173 +292,93 @@ export function ResourceListTab({
           <button
             type="button"
             onClick={onRefresh}
-            style={{
-              background: "none",
-              border: "1px solid #0e1f2e",
-              borderRadius: 3,
-              color: "#39ff8a",
-              cursor: "pointer",
-              padding: "2px 7px",
-              ...mono,
-              fontSize: "0.67rem",
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-            }}
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded border text-[0.67rem] cursor-pointer", mono,
+              "bg-transparent border-[#0e1f2e] text-[#39ff8a]"
+            )}
           >
-            {loading ? <Spinner /> : "↻"} refresh
+            {loading ? <Spinner size={10} /> : "↻"} refresh
           </button>
         </div>
       </div>
-      {loading ? (
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            color: "#39ff8a",
-            ...mono,
-            fontSize: "0.76rem",
-          }}
-        >
-          <Spinner /> Loading {type}…
-        </div>
-      ) : (
-        <div style={{ flex: 1, overflow: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", ...mono, fontSize: "0.74rem" }}>
-            <thead>
-              <tr style={{ position: "sticky", top: 0, background: "#050910", zIndex: 5 }}>
-                {cols.map((c) => (
+
+      {/* Table */}
+      <div className="flex-1 overflow-auto">
+        <table className={cn("w-full border-collapse", mono, "text-[0.74rem]")}>
+          <thead>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id} className={cn(
+                "sticky top-0 z-5", "bg-[#050910] border-b border-[#0a1018]"
+              )}>
+                {headerGroup.headers.map((header) => (
                   <th
-                    key={c}
-                    draggable
-                    onDragStart={handleDragStart(c)}
-                    onDragOver={handleDragOver(c)}
-                    onDrop={handleDrop(c)}
-                    onClick={() => handleSort(c)}
-                    style={{
-                      padding: "7px 13px",
-                      textAlign: "left",
-                      color: "#1e3a52",
-                      fontWeight: 700,
-                      fontSize: "0.61rem",
-                      letterSpacing: "0.09em",
-                      textTransform: "uppercase",
-                      borderBottom: "1px solid #0a1018",
-                      cursor: "pointer",
-                      userSelect: "none",
-                      whiteSpace: "nowrap",
-                      width: colWidths[c] || undefined,
-                      position: "relative",
-                      opacity: dragCol === c ? 0.4 : 1,
-                    }}
+                    key={header.id}
+                    {...header.getHeaderProps({
+                      style: { width: header.getSize() },
+                    })}
+                    className={cn(
+                      "px-3 py-1.5 text-left font-bold text-[0.61rem] uppercase tracking-[0.09em]",
+                      "text-[#1e3a52] border-b border-[#0a1018] cursor-pointer select-none whitespace-nowrap relative",
+                      header.getIsSorted() && "text-[#39ff8a]"
+                    )}
                   >
-                    {c.replace(/_/g, " ")}
-                    {sortCol === c ? (sortDir > 0 ? " ↑" : " ↓") : ""}
+                    <div className="flex items-center gap-1">
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.getIsSorted() ? (header.getSortDirection() === "asc" ? " ↑" : " ↓") : ""}
+                    </div>
                     <div
-                      onMouseDown={(e) => startResize(c, e)}
-                      style={{
-                        position: "absolute",
-                        right: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: 5,
-                        cursor: "col-resize",
-                      }}
+                      {...header.getResizeProps()}
+                      className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize"
                     />
                   </th>
                 ))}
               </tr>
-            </thead>
-            <tbody>
-              {sorted.map((row, i) => (
-                  <tr
-                    key={`${row.name}-${i}`}
-                    onClick={() => onSelect(row)}
-                    onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); onMiddleClick?.(row); } }}
-                    onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, row }); }}
-                    style={{
-                    borderBottom: "1px solid #060c14",
-                    cursor: "pointer",
-                    background: hovered === i ? "#0a1420" : "transparent",
-                    transition: "background 0.07s",
-                  }}
-                  onMouseEnter={() => setHovered(i)}
-                  onMouseLeave={() => setHovered(null)}
+            ))}
+          </thead>
+          <tbody>
+            {table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td colSpan={table.getAllLeafColumns().length} className={cn(
+                  "text-center py-20 text-[0.72rem]", mono, "text-[#0e1a26]"
+                )}>
+                  No {type} found{filter ? ` matching "${filter}"` : ""}
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row, i) => (
+                <tr
+                  key={row.id}
+                  onClick={() => onSelect(row.original)}
+                  onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); onMiddleClick?.(row.original); } }}
+                  onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, row: row.original }); }}
+                  className={cn(
+                    "border-b border-[#060c14] cursor-pointer transition-colors",
+                    "hover:bg-[#0a1420]"
+                  )}
                 >
-                  {cols.map((c) => (
+                  {row.getVisibleCells().map((cell) => (
                     <td
-                      key={c}
-                      style={{
-                        padding: "7px 13px",
-                        whiteSpace: "nowrap",
-                        maxWidth: 260,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
+                      key={cell.id}
+                      className={cn("px-3 py-1.5 whitespace-nowrap max-w-[260px] overflow-hidden text-ellipsis")}
                     >
-                      {c === "status" ? (
-                        <StatusDot status={row[c]} />
-                      ) : c === "namespace" ? (
-                        <span style={{ color: nsColor(row[c]), fontSize: "0.71rem" }}>{row[c]}</span>
-                      ) : c === "restarts" && row[c] > 5 ? (
-                        <span style={{ color: "#ff4d4d", fontWeight: 700 }}>{row[c]}</span>
-                      ) : c === "restarts" && row[c] > 0 ? (
-                        <span style={{ color: "#f5c518" }}>{row[c]}</span>
-                      ) : c === "ready" && row[c]?.startsWith("0") ? (
-                        <span style={{ color: "#ff4d4d" }}>{row[c]}</span>
-                      ) : c === "name" ? (
-                        <span style={{ color: "#ccd", fontWeight: 600 }}>{row[c]}</span>
-                      ) : c === "type" && row[c] === "LoadBalancer" ? (
-                        <Pill label={row[c]} color="#39ff8a" />
-                      ) : c === "external_ip" && row[c] !== "<none>" ? (
-                        <span style={{ color: "#f5c518" }}>{row[c]}</span>
-                      ) : c === "image" ? (
-                        <span style={{ color: "#7a6aaa", fontSize: "0.69rem" }}>{row[c]}</span>
-                      ) : (
-                        <span style={{ color: "#3a5878" }}>{String(row[c] ?? "—")}</span>
-                      )}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
                 </tr>
-              ))}
-              {sorted.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={cols.length}
-                    style={{
-                      textAlign: "center",
-                      color: "#0e1a26",
-                      padding: "50px",
-                      ...mono,
-                      fontSize: "0.72rem",
-                    }}
-                  >
-                    No {type} found{filter ? ` matching "${filter}"` : ""}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Context Menu */}
       {ctxMenu && (
         <div
-          style={{
-            position: "fixed",
-            left: ctxMenu.x,
-            top: ctxMenu.y,
-            background: "#0a1420",
-            border: "1px solid #1e3a52",
-            borderRadius: 5,
-            padding: "4px 0",
-            zIndex: 9999,
-            minWidth: 160,
-            ...mono,
-            fontSize: "0.72rem",
-          }}
+          className={cn(
+            "fixed z-[9999] rounded-lg shadow-xl p-1 min-w-[160px]", mono, "text-[0.72rem]",
+            "bg-[#0a1420] border border-[#1e3a52]"
+          )}
+          style={{ left: ctxMenu.x, top: ctxMenu.y }}
         >
           {[
             { label: "Copy Name", fn: () => navigator.clipboard.writeText(ctxMenu.row.name) },
@@ -475,69 +388,36 @@ export function ResourceListTab({
           ].map(({ label, fn, color }) => (
             <div
               key={label}
-              onClick={() => ctxAction(fn)}
-              style={{
-                padding: "6px 16px",
-                color: color || "#bcc",
-                cursor: "pointer",
-                transition: "background 0.07s",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "#152238"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+              onClick={() => { fn(); setCtxMenu(null); }}
+              className={cn(
+                "px-4 py-1.5 cursor-pointer transition-colors select-none",
+                "hover:bg-[#152238]"
+              )}
+              style={{ color: color || "#bcc" }}
             >
               {label}
             </div>
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation */}
       {delConfirm && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 10000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(0,0,0,0.6)",
-          }}
-          onClick={() => setDelConfirm(null)}
-        >
-          <div
-            style={{
-              background: "#0a1420",
-              border: "1px solid #ff4d4d40",
-              borderRadius: 8,
-              padding: 20,
-              minWidth: 300,
-              maxWidth: 400,
-              ...mono,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-              <Trash2 size={16} color="#ff4d4d" />
-              <span style={{ color: "#ff4d4d", fontWeight: 700, fontSize: "0.8rem" }}>
-                Delete {kind}/{delConfirm.name}?
-              </span>
-            </div>
-            {delConfirm.namespace && (
-              <div style={{ fontSize: "0.67rem", color: "#667", marginBottom: 14 }}>
-                Namespace: {delConfirm.namespace}
-              </div>
-            )}
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80">
+          <div className={cn(
+            "rounded-lg p-6 min-w-[320px] bg-[#0a0f18] border border-[#1e3a52] shadow-[0_24px_64px_rgba(0,0,0,0.95)]", mono
+          )}>
+            <p className="text-[#c8d6e5] mb-4">Delete {kind} <span className="text-[#39ff8a]">{delConfirm.name}</span>?</p>
+            <div className="flex justify-end gap-2">
               <button
-                type="button"
                 onClick={() => setDelConfirm(null)}
-                style={{ background: "transparent", border: "1px solid #667", borderRadius: 4, color: "#667", padding: "4px 12px", ...mono, fontSize: "0.67rem", cursor: "pointer" }}
+                className={cn("px-3 py-1.5 rounded border text-[0.67rem] cursor-pointer", mono, "border-[#1a2030] text-[#4a7a8a] bg-transparent")}
               >
                 Cancel
               </button>
               <button
-                type="button"
                 onClick={() => confirmDelete(delConfirm)}
-                style={{ background: "#ff4d4d20", border: "1px solid #ff4d4d", borderRadius: 4, color: "#ff4d4d", padding: "4px 12px", ...mono, fontSize: "0.67rem", cursor: "pointer" }}
+                className={cn("px-3 py-1.5 rounded border text-[0.67rem] cursor-pointer", mono, "border-[#3a1a1a] text-[#ff6b6b] bg-[#0a1a0a]")}
               >
                 Delete
               </button>
@@ -545,18 +425,22 @@ export function ResourceListTab({
           </div>
         </div>
       )}
-      <CreateCronJobModal
-        open={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        clusterId={clusterId}
-        namespace={namespace}
-      />
-      <CreateJobModal
-        open={showCreateJobModal}
-        onClose={() => setShowCreateJobModal(false)}
-        clusterId={clusterId}
-        namespace={namespace}
-      />
+
+      {/* Modals */}
+      {showCreateModal && (
+        <CreateCronJobModal
+          clusterId={clusterId}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={onRefresh}
+        />
+      )}
+      {showCreateJobModal && (
+        <CreateJobModal
+          clusterId={clusterId}
+          onClose={() => setShowCreateJobModal(false)}
+          onCreated={onRefresh}
+        />
+      )}
     </div>
   );
 }
