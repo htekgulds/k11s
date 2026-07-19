@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, useDeferredValue } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Plus } from "lucide-react";
@@ -82,6 +82,9 @@ export default function KubeClient() {
   const cmdRef = useRef(null);
   const activeIdRef = useRef(activeClusterId);
   activeIdRef.current = activeClusterId;
+
+  const deferredQuery = useDeferredValue(cmdQuery);
+  const searchStale = cmdQuery !== deferredQuery;
 
   // ── Drag & Drop (YAML apply) ─────────────────────────────────────────────
 
@@ -302,9 +305,9 @@ export default function KubeClient() {
   ], [clusters, activeClusterId, switchCluster, openResourceView, fetchResource, setTabs, setActiveTab]);
 
   const resourceItems = useMemo(
-    () => (cmdOpen && cmdQuery
+    () => (cmdOpen && deferredQuery
       ? (() => {
-          const q = cmdQuery.toLowerCase();
+          const q = deferredQuery.toLowerCase();
           const results = [];
           for (const [cid, cdata] of Object.entries(clusterData)) {
             const cl = clusters.find((c) => c.id === cid);
@@ -335,7 +338,7 @@ export default function KubeClient() {
           return results.slice(0, 30);
         })()
       : []),
-    [cmdOpen, cmdQuery, clusterData, clusters],
+    [cmdOpen, deferredQuery, clusterData, clusters],
   );
 
   const paletteItems = useMemo(
@@ -513,6 +516,7 @@ export default function KubeClient() {
         setQuery={setCmdQuery}
         items={paletteItems}
         inputRef={cmdRef}
+        stale={searchStale}
         onClose={() => { setCmdOpen(false); setCmdQuery(""); }}
       />
       <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />

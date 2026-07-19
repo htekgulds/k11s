@@ -3,7 +3,7 @@ import { Command } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { mono } from "../../theme";
 
-export function CommandPalette({ open, query, setQuery, items, onClose, inputRef }) {
+export function CommandPalette({ open, query, setQuery, items, onClose, inputRef, stale }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const visible = items.filter((i) => !i.separator).slice(0, 10);
   const listRef = useRef(null);
@@ -87,6 +87,7 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
               fontSize: "0.82rem",
             }}
           />
+          {stale && <span style={{ color: "#ffd70066", fontSize: "0.62rem", ...mono }}>⌛</span>}
           <span style={{ color: "#0e1f2e", fontSize: "0.67rem" }}>ESC</span>
         </div>
         <div ref={listRef} style={{ maxHeight: 320, overflowY: "auto" }}>
