@@ -1,7 +1,7 @@
 /// Combined resource types: Deployment, StatefulSet, Service, Ingress, ConfigMap, Secret, PVC
 
 use k8s_openapi::api::apps::v1::{Deployment, StatefulSet};
-use k8s_openapi::api::core::v1::{ConfigMap, PersistentVolumeClaim, Secret, Service};
+use k8s_openapi::api::core::v1::{ConfigMap, PersistentVolume, PersistentVolumeClaim, Secret, Service};
 use k8s_openapi::api::networking::v1::Ingress;
 use kube::api::ListParams;
 use kube::Api;
@@ -617,4 +617,79 @@ pub(crate) async fn list_hpas(context: Option<String>) -> Result<Vec<HpaInfo>, S
         .await
         .map_err(|e| format!("Failed to list HPAs: {e}"))?;
     Ok(hpas.items.into_iter().map(hpa_to_info).collect())
+}
+
+// ── PersistentVolume ────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+pub(crate) struct PvInfo {
+    pub name: String,
+    pub capacity: String,
+    pub access_modes: String,
+    pub reclaim_policy: String,
+    pub status: String,
+    pub storage_class: String,
+    pub claim_ref: String,
+    pub age: String,
+}
+
+pub(crate) fn pv_to_info(pv: PersistentVolume) -> PvInfo {
+    let name = pv.metadata.name.unwrap_or_default();
+    let capacity = pv
+        .spec
+        .as_ref()
+        .and_then(|s| s.capacity.as_ref())
+        .and_then(|c| c.get("storage").map(|q| q.0.clone()))
+        .unwrap_or_else(|| "\u{2014}".to_string());
+    let access_modes = pv
+        .spec
+        .as_ref()
+        .and_then(|s| s.access_modes.as_ref())
+        .map(|modes| modes.join(","))
+        .unwrap_or_default();
+    let reclaim_policy = pv
+        .spec
+        .as_ref()
+        .and_then(|s| s.persistent_volume_reclaim_policy.clone())
+        .unwrap_or_else(|| "Retain".to_string());
+    let status = pv
+        .status
+        .as_ref()
+        .and_then(|s| s.phase.clone())
+        .unwrap_or_else(|| "Unknown".to_string());
+    let storage_class = pv
+        .spec
+        .as_ref()
+        .and_then(|s| s.storage_class_name.clone())
+        .unwrap_or_else(|| "\u{2014}".to_string());
+    let claim_ref = pv
+        .spec
+        .as_ref()
+        .and_then(|s| s.claim_ref.as_ref())
+        .map(|cr| {
+            let ns = cr.namespace.as_deref().unwrap_or("?");
+            let nm = cr.name.as_deref().unwrap_or("?");
+            format!("{ns}/{nm}")
+        })
+        .unwrap_or_else(|| "\u{2014}".to_string());
+
+    PvInfo {
+        name,
+        capacity,
+        access_modes,
+        reclaim_policy,
+        status,
+        storage_class,
+        claim_ref,
+        age: fmt_age(&pv.metadata.creation_timestamp),
+    }
+}
+
+pub(crate) async fn list_persistentvolumes(context: Option<String>) -> Result<Vec<PvInfo>, String> {
+    let client = make_client(context).await?;
+    let pvs = Api::<PersistentVolume>::all(client)
+        .list(&ListParams::default())
+        .await
+        .map_err(|e| format!("Failed to list PVs: {e}"))?;
+    Ok(pvs.items.into_iter().map(pv_to_info).collect())
 }

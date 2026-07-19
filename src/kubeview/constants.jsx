@@ -17,6 +17,7 @@ export const COMMON_RESOURCES = [
   { key: "jobs", label: "Jobs", icon: <Crosshair size={12} />, shortcut: "B", cmd: "list_jobs" },
   { key: "hpas", label: "HPAs", icon: <Activity size={12} />, shortcut: "H", cmd: "list_hpas" },
   { key: "helm", label: "Helm Releases", icon: <Package size={12} />, shortcut: "E", cmd: "list_helm_releases" },
+  { key: "pv-usage", label: "Volume Usage", icon: <HardDrive size={12} />, shortcut: "U", cmd: "list_pv_usage" },
 ];
 
 // Get icon for any resource (common or other)

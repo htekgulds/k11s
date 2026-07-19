@@ -28,3 +28,7 @@ export {
 export {
   listHelmReleases,
 } from "./helm";
+
+export {
+  listPvUsage,
+} from "./pvUsage";

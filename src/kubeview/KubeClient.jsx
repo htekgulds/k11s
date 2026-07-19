@@ -28,6 +28,7 @@ import { DetailView } from "./features/detail-view/DetailView";
 import { ResourceListTab } from "./features/resource-list/ResourceListTab";
 import { Dashboard } from "./features/dashboard/Dashboard";
 import { HelmReleasesTab } from "./features/detail-view/HelmReleasesTab";
+import { PvUsageTab } from "./features/detail-view/PvUsageTab";
 import { DropZoneOverlay } from "./features/yaml-drop/DropZoneOverlay";
 import { YamlPreviewModal } from "./features/yaml-drop/YamlPreviewModal";
 
@@ -448,6 +449,18 @@ export default function KubeClient() {
           key="helm"
           data={data.helm || []}
           loading={loading.helm}
+          filter={tf.filter}
+        />
+      );
+    }
+
+    if (nav.activeResource === "pv-usage") {
+      const tf = getTF(activeClusterId);
+      return (
+        <PvUsageTab
+          key="pv-usage"
+          data={data["pv-usage"] || []}
+          loading={loading["pv-usage"]}
           filter={tf.filter}
         />
       );
