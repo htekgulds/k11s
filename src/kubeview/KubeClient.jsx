@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef, useDeferredValue } f
 import { useHotkeys } from "react-hotkeys-hook";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Plus } from "lucide-react";
+import MiniSearch from "minisearch";
 import { mono } from "./theme";
 import { defaultNavState, COMMON_RESOURCES } from "./constants";
 import { assignClusterColors, detailTabId, getClusterColor } from "./utils/clusterColors";
@@ -304,41 +305,87 @@ export default function KubeClient() {
     { label: "Close all tabs", fn: () => { setTabs(() => []); setActiveTab(null); } },
   ], [clusters, activeClusterId, switchCluster, openResourceView, fetchResource, setTabs, setActiveTab]);
 
+  // ── MiniSearch index (rebuilds when clusters change) ────────────────────
+
+  const searchIndex = useMemo(() => {
+    const miniSearch = new MiniSearch({
+      fields: ["name", "namespace", "type", "cluster"],
+      storeFields: ["clusterId", "rt", "clusterLabel", "clusterColor", "typeShort", "objName", "objNamespace"],
+      idField: "id",
+    });
+
+    const entries = [];
+    let docId = 0;
+    for (const [cid, cdata] of Object.entries(clusterData)) {
+      const cl = clusters.find((c) => c.id === cid);
+      const clLabel = cl?.label || cid;
+      const clColor = cl?.color || "#666";
+      for (const [rtKey, items] of Object.entries(cdata)) {
+        if (!Array.isArray(items)) continue;
+        const rt = COMMON_RESOURCES.find((r) => r.key === rtKey);
+        const rtLabel = rt?.label || rtKey;
+        for (const obj of items) {
+          const id = String(docId++);
+          entries.push({
+            id,
+            name: obj.name,
+            namespace: obj.namespace || "",
+            type: rtLabel,
+            cluster: clLabel,
+            clusterId: cid,
+            rt: rtKey,
+            clusterLabel: clLabel,
+            clusterColor: clColor,
+            typeShort: rtLabel.slice(0, 4),
+            objName: obj.name,
+            objNamespace: obj.namespace || "",
+            _obj: obj,
+          });
+        }
+      }
+    }
+
+    if (entries.length > 0) miniSearch.addAll(entries);
+    return { miniSearch, entries };
+  }, [clusterData, clusters]);
+
+  // ── Search results via MiniSearch (triggered by deferred query) ────────
+
   const resourceItems = useMemo(
-    () => (cmdOpen && deferredQuery
+    () => (cmdOpen && deferredQuery && searchIndex.entries.length > 0
       ? (() => {
-          const q = deferredQuery.toLowerCase();
+          const q = deferredQuery;
+          const raw = searchIndex.miniSearch.search(q, {
+            prefix: true,
+            fuzzy: 0.15,
+            boost: { name: 3, cluster: 2 },
+          });
           const results = [];
-          for (const [cid, cdata] of Object.entries(clusterData)) {
-            const cl = clusters.find((c) => c.id === cid);
-            const clLabel = cl?.label || cid;
-            const clColor = cl?.color || "#666";
-            for (const [rtKey, items] of Object.entries(cdata)) {
-              if (!Array.isArray(items)) continue;
-              const rt = COMMON_RESOURCES.find((r) => r.key === rtKey);
-              const rtLabel = rt?.label || rtKey;
-              for (const obj of items) {
-                const ss = `${obj.name} ${obj.namespace || ""} ${rtLabel}`.toLowerCase();
-                if (ss.includes(q)) {
-                  results.push({
-                    label: `${rtLabel.slice(0, 4)} ${obj.name} ${obj.namespace ? `(${obj.namespace})` : ""}`,
-                    clusterLabel: clLabel,
-                    clusterColor: clColor,
-                    clusterId: cid, rt: rtKey, obj,
-                  });
-                }
-              }
-            }
+          // Deduplicate by obj identity
+          const seen = new Set();
+          for (const hit of raw) {
+            const entry = searchIndex.entries[parseInt(hit.id)];
+            if (!entry || seen.has(entry._obj)) continue;
+            seen.add(entry._obj);
+            results.push({
+              label: `${entry.typeShort} ${entry.name} ${entry.namespace ? `(${entry.namespace})` : ""}`,
+              clusterLabel: entry.clusterLabel,
+              clusterColor: entry.clusterColor,
+              clusterId: entry.clusterId,
+              rt: entry.rt,
+              obj: entry._obj,
+            });
+            if (results.length >= 30) break;
           }
           results.sort((a, b) => {
-            const aExact = a.obj.name.toLowerCase() === q ? 0 : 1;
-            const bExact = b.obj.name.toLowerCase() === q ? 0 : 1;
+            const aExact = a.obj.name.toLowerCase() === q.toLowerCase() ? 0 : 1;
+            const bExact = b.obj.name.toLowerCase() === q.toLowerCase() ? 0 : 1;
             return aExact - bExact || a.obj.name.localeCompare(b.obj.name);
           });
-          return results.slice(0, 30);
+          return results;
         })()
       : []),
-    [cmdOpen, deferredQuery, clusterData, clusters],
+    [cmdOpen, deferredQuery, searchIndex],
   );
 
   const paletteItems = useMemo(
