@@ -1,24 +1,41 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { buildGraph, getRelated } from "../../utils/graph";
-import { InfoTab } from "./InfoTab";
-import { LogsTab } from "./LogsTab";
-import { ShellTab } from "./ShellTab";
-import { YamlTab } from "./YamlTab";
-import { EventsTab } from "./EventsTab";
-import { DescribeTab } from "./DescribeTab";
-import { GraphTab } from "./GraphTab";
-import { MetricsTab } from "./MetricsTab";
-import { ConfigDataTab } from "./ConfigDataTab";
-import { IngressRulesTab } from "./IngressRulesTab";
 import { DetailHeader } from "./DetailHeader";
 import { DetailTabs } from "./DetailTabs";
+import { getAvailableTabs, getTabComponent, getTabProps } from "./detailTabs";
 
 export function DetailView({ obj, type, allData, clusterId, onNavigate }) {
   const [subTab, setSubTab] = useState("info");
-  const graph = buildGraph(obj, type, allData);
-  const related = getRelated(obj, type, allData);
 
-  const goTab = (tab) => { setSubTab(tab); };
+  const graph = useMemo(() => buildGraph(obj, type, allData), [obj, type, allData]);
+  const related = useMemo(() => getRelated(obj, type, allData), [obj, type, allData]);
+
+  const goTab = (tab) => setSubTab(tab);
+
+  // Prepare shared tab data
+  const tabData = useMemo(() => ({
+    obj,
+    type,
+    allData,
+    clusterId,
+    graph,
+    related,
+    onNavigate,
+  }), [obj, type, allData, clusterId, graph, related, onNavigate]);
+
+  const availableTabs = getAvailableTabs(type);
+  const activeTabKey = availableTabs.includes(subTab) ? subTab : availableTabs[0] || "info";
+  const TabComponent = getTabComponent(activeTabKey);
+
+  if (!TabComponent) {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#0e1f2e" }}>
+        No detail view for this resource type
+      </div>
+    );
+  }
+
+  const tabProps = getTabProps(activeTabKey, tabData);
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -31,19 +48,10 @@ export function DetailView({ obj, type, allData, clusterId, onNavigate }) {
         }}
       >
         <DetailHeader obj={obj} type={type} clusterId={clusterId} onGoTab={goTab} />
-        <DetailTabs type={type} subTab={subTab} onGoTab={goTab} />
+        <DetailTabs type={type} subTab={activeTabKey} onGoTab={goTab} />
       </div>
       <div style={{ flex: 1, overflow: "hidden", display: "flex", minHeight: 0 }}>
-        {subTab === "info" && <InfoTab obj={obj} type={type} related={related} onNavigate={onNavigate} />}
-        {subTab === "metrics" && <MetricsTab obj={obj} clusterId={clusterId} />}
-        {subTab === "logs" && <LogsTab obj={obj} clusterId={clusterId} />}
-        {subTab === "shell" && <ShellTab obj={obj} clusterId={clusterId} />}
-        {subTab === "yaml" && <YamlTab obj={obj} type={type} clusterId={clusterId} />}
-        {subTab === "events" && <EventsTab obj={obj} clusterId={clusterId} />}
-        {subTab === "describe" && <DescribeTab obj={obj} clusterId={clusterId} />}
-        {subTab === "data" && <ConfigDataTab kind={type} name={obj.name} namespace={obj.namespace} clusterId={clusterId} />}
-        {subTab === "rules" && <IngressRulesTab clusterId={clusterId} />}
-        {subTab === "graph" && <GraphTab graph={graph} allData={allData} onNavigate={onNavigate} />}
+        <TabComponent {...tabProps} />
       </div>
     </div>
   );

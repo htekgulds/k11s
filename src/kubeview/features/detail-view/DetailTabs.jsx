@@ -1,8 +1,8 @@
-import { DETAIL_TABS_MAP } from "../../constants";
+import { getAvailableTabs } from "./detailTabs";
 import { mono } from "../../theme";
 
 export function DetailTabs({ type, subTab, onGoTab }) {
-  const dtabs = DETAIL_TABS_MAP[type] || DETAIL_TABS_MAP.default;
+  const dtabs = getAvailableTabs(type);
 
   return (
     <div style={{ display: "flex" }}>
