@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { applyYaml, k8sInvoke } from "../../api";
 import { exportContent } from "../../api/export";
 import { mono } from "../../theme";
@@ -12,6 +12,9 @@ export function YamlTab({ obj, type, clusterId }) {
   const [editContent, setEditContent] = useState("");
   const [applying, setApplying] = useState(false);
   const [result, setResult] = useState(null);
+  const [searchText, setSearchText] = useState("");
+  const [copied, setCopied] = useState(false);
+  const searchRef = useRef(null);
 
   const load = useCallback(
     async (omit) => {
@@ -54,7 +57,6 @@ export function YamlTab({ obj, type, clusterId }) {
       const res = await applyYaml(clusterId, editContent);
       setResult({ ok: true, message: res });
       setEditing(false);
-      // Reload the YAML to reflect changes
       load(hideMF);
     } catch (err) {
       setResult({ ok: false, message: String(err) });
@@ -63,7 +65,45 @@ export function YamlTab({ obj, type, clusterId }) {
     }
   };
 
+  const handleCopy = async () => {
+    const text = yaml?.yaml || "";
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard not available */ }
+  };
+
   const display = editing ? editContent : (yaml?.error || yaml?.yaml || "");
+  const lines = useMemo(() => display.split("\n"), [display]);
+
+  // Highlight search matches
+  const highlightLine = (line, i) => {
+    if (!searchText) return <span>{line}</span>;
+    const parts = line.split(new RegExp(`(${searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi"));
+    if (parts.length === 1) return <span>{line}</span>;
+    return (
+      <span>
+        {parts.map((p, j) =>
+          p.toLowerCase() === searchText.toLowerCase()
+            ? <span key={j} style={{ background: "#ffd70033", color: "#ffd700", borderRadius: 2 }}>{p}</span>
+            : <span key={j}>{p}</span>
+        )}
+      </span>
+    );
+  };
+
+  // Syntax color for YAML keys
+  const lineColor = (line) => {
+    const ind = line.match(/^(\s*)/)?.[1]?.length ?? 0;
+    if (line.trim().startsWith("#")) return "#1e3a52";
+    if (ind === 0 && /\w+:/.test(line)) return "#7dd3fc";
+    if (ind <= 2 && /\w+:/.test(line)) return "#c4b5fd";
+    if (/\w+:/.test(line)) return "#a5f3fc";
+    if (/^(\s*)-/.test(line)) return "#86efac";
+    return "#fde68a";
+  };
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -77,6 +117,7 @@ export function YamlTab({ obj, type, clusterId }) {
           alignItems: "center",
           background: "#050910",
           flexShrink: 0,
+          flexWrap: "wrap",
         }}
       >
         <span
@@ -111,6 +152,22 @@ export function YamlTab({ obj, type, clusterId }) {
             </button>
             <button
               type="button"
+              onClick={handleCopy}
+              style={{
+                background: "none",
+                border: "1px solid #0e1f2e",
+                borderRadius: 3,
+                color: copied ? "#39ff8a" : "#4a7a8a",
+                cursor: "pointer",
+                padding: "2px 7px",
+                ...mono,
+                fontSize: "0.67rem",
+              }}
+            >
+              {copied ? "✓ copied" : "📋 copy"}
+            </button>
+            <button
+              type="button"
               onClick={() => exportContent(
                 yaml?.yaml || "",
                 `${type}_${obj.name}.yaml`,
@@ -130,6 +187,26 @@ export function YamlTab({ obj, type, clusterId }) {
             >
               ⬇ export
             </button>
+            {/* Search input */}
+            <input
+              ref={searchRef}
+              type="text"
+              placeholder="Search YAML…"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              style={{
+                ...mono,
+                fontSize: "0.67rem",
+                background: "#0a1018",
+                border: searchText ? "1px solid #ffd70044" : "1px solid #0e1f2e",
+                color: "#8ab",
+                padding: "2px 7px",
+                borderRadius: 3,
+                outline: "none",
+                width: 130,
+                marginLeft: 4,
+              }}
+            />
             <button
               type="button"
               onClick={handleEdit}
@@ -210,6 +287,23 @@ export function YamlTab({ obj, type, clusterId }) {
         </div>
       )}
 
+      {/* Search match counter */}
+      {searchText && !editing && (
+        <div
+          style={{
+            padding: "2px 13px",
+            fontSize: "0.62rem",
+            ...mono,
+            color: "#ffd70088",
+            background: "#0a0f18",
+            borderBottom: "1px solid #0a1018",
+            flexShrink: 0,
+          }}
+        >
+          {lines.filter((l) => l.toLowerCase().includes(searchText.toLowerCase())).length} matches
+        </div>
+      )}
+
       {/* Body */}
       <div style={{ flex: 1, overflow: "auto", padding: "10px 13px" }}>
         {fetching ? (
@@ -238,22 +332,21 @@ export function YamlTab({ obj, type, clusterId }) {
             }}
           />
         ) : (
-          <pre style={{ margin: 0, ...mono, fontSize: "0.71rem", lineHeight: 1.9, whiteSpace: "pre-wrap" }}>
-            {display.split("\n").map((line, i) => {
-              const ind = line.match(/^(\s*)/)?.[1]?.length ?? 0;
-              let c = "#4a7a8a";
-              if (line.trim().startsWith("#")) c = "#1e3a52";
-              else if (ind === 0 && /\w+:/.test(line)) c = "#7dd3fc";
-              else if (ind <= 2 && /\w+:/.test(line)) c = "#c4b5fd";
-              else if (/\w+:/.test(line)) c = "#a5f3fc";
-              else if (/^(\s*)-/.test(line)) c = "#86efac";
-              else c = "#fde68a";
-              return (
-                <span key={i} style={{ color: c, display: "block" }}>
-                  {line}
+          <pre style={{ margin: 0, ...mono, fontSize: "0.71rem", lineHeight: 1.9, display: "flex" }}>
+            {/* Line numbers gutter */}
+            <span style={{ userSelect: "none", color: "#0e1a2a", textAlign: "right", paddingRight: 14, minWidth: 36, flexShrink: 0 }}>
+              {lines.map((_, i) => (
+                <span key={i} style={{ display: "block" }}>{i + 1}</span>
+              ))}
+            </span>
+            {/* Code content */}
+            <span style={{ whiteSpace: "pre-wrap" }}>
+              {lines.map((line, i) => (
+                <span key={i} style={{ color: yaml?.error ? "#ff6b6b" : lineColor(line), display: "block" }}>
+                  {highlightLine(line, i)}
                 </span>
-              );
-            })}
+              ))}
+            </span>
           </pre>
         )}
       </div>
