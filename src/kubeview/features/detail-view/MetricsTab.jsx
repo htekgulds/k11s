@@ -1,40 +1,20 @@
 import { useEffect, useState } from "react";
 import { getPodMetrics } from "../../api/metrics";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 
 function Bar({ value, max, label, color }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   const barColor =
     color || (pct > 90 ? "#ff4d4d" : pct > 70 ? "#f5c518" : "#39ff8a");
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        marginTop: 4,
-      }}
-    >
-      <div
-        style={{
-          flex: 1,
-          height: 10,
-          background: "#0a1018",
-          borderRadius: 5,
-          overflow: "hidden",
-        }}
-      >
+    <div className="flex items-center gap-1.5 mt-1">
+      <div className="flex-1 h-2.5 bg-[#0a1018] rounded-full overflow-hidden">
         <div
-          style={{
-            width: `${pct}%`,
-            height: "100%",
-            background: barColor,
-            borderRadius: 5,
-            transition: "width 0.3s",
-          }}
+          className="h-full rounded-full transition-all duration-300"
+          style={{ width: `${pct}%`, background: barColor }}
         />
       </div>
-      <span style={{ ...mono, fontSize: "0.65rem", color: "#556", minWidth: 60, textAlign: "right" }}>
+      <span className={cn("font-mono text-[0.65rem] text-[#556] min-w-[60px] text-right", `text-[${barColor}]`)}>
         {label}
       </span>
     </div>
@@ -63,14 +43,7 @@ export function MetricsTab({ obj, clusterId }) {
 
   if (loading) {
     return (
-      <div
-        style={{
-          padding: 24,
-          color: "#556",
-          ...mono,
-          fontSize: "0.75rem",
-        }}
-      >
+      <div className={cn("p-6", "text-[#556] font-mono text-[0.75rem]")}>
         Loading metrics…
       </div>
     );
@@ -78,33 +51,18 @@ export function MetricsTab({ obj, clusterId }) {
 
   if (error) {
     return (
-      <div style={{ padding: 24 }}>
-        <div
-          style={{
-            color: "#ff4d4d",
-            ...mono,
-            fontSize: "0.75rem",
-            marginBottom: 8,
-          }}
-        >
+      <div className="p-6">
+        <div className={cn("text-[#ff4d4d] font-mono text-[0.75rem] mb-2")}>
           ⚠ {error}
         </div>
         {error.toLowerCase().includes("metrics-server") && (
-          <div style={{ color: "#7dd3fc", fontSize: "0.72rem", lineHeight: 1.6 }}>
+          <div className={cn("text-[#7dd3fc] text-[0.72rem] leading-relaxed")}>
             The metrics-server must be installed in the cluster to view resource usage.
             <br />
             Install with:
-            <pre
-              style={{
-                background: "#0a1018",
-                padding: "8px 12px",
-                borderRadius: 4,
-                marginTop: 6,
-                ...mono,
-                fontSize: "0.7rem",
-                color: "#c4b5fd",
-              }}
-            >
+            <pre className={cn(
+              "mt-1.5 p-3 rounded bg-[#0a1018] font-mono text-[0.7rem] text-[#c4b5fd] overflow-auto"
+            )}>
               kubectl apply -f{" "}
               https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
             </pre>
@@ -116,75 +74,37 @@ export function MetricsTab({ obj, clusterId }) {
 
   if (!metrics || metrics.length === 0) {
     return (
-      <div
-        style={{
-          padding: 24,
-          color: "#556",
-          ...mono,
-          fontSize: "0.75rem",
-        }}
-      >
+      <div className={cn("p-6", "text-[#556] font-mono text-[0.75rem]")}>
         No metrics available for this pod.
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        padding: 20,
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-        overflow: "auto",
-        height: "100%",
-      }}
-    >
+    <div className={cn("p-5 flex flex-col gap-4 overflow-auto h-full")}>
       {metrics.map((m) => (
         <div
           key={m.container}
-          style={{
-            background: "#050910",
-            border: "1px solid #0a1018",
-            borderRadius: 6,
-            padding: 14,
-          }}
+          className={cn(
+            "p-3.5 rounded-lg border",
+            "bg-[#050910] border-[#0a1018]"
+          )}
         >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginBottom: 10,
-            }}
-          >
-            <span style={{ color: "#dde", ...mono, fontWeight: 700, fontSize: "0.72rem" }}>
+          <div className="flex justify-between mb-2.5">
+            <span className={cn("font-semibold text-[0.72rem]", "text-[#dde] font-mono")}>
               {m.container}
             </span>
-            <span style={{ color: "#556", ...mono, fontSize: "0.6rem" }}>
+            <span className={cn("font-mono text-[0.6rem]", "text-[#556]")}>
               {new Date(m.timestamp).toLocaleTimeString()}
             </span>
           </div>
 
           {/* CPU */}
-          <div style={{ marginBottom: 10 }}>
-            <div
-              style={{
-                color: "#7dd3fc",
-                ...mono,
-                fontSize: "0.65rem",
-                marginBottom: 2,
-              }}
-            >
+          <div className="mb-2.5">
+            <div className={cn("font-mono text-[0.65rem] mb-0.5", "text-[#7dd3fc]")}>
               CPU
             </div>
-            <div
-              style={{
-                color: "#aac",
-                ...mono,
-                fontSize: "0.6rem",
-                marginBottom: 2,
-              }}
-            >
+            <div className={cn("font-mono text-[0.6rem] mb-0.5", "text-[#aac]")}>
               {m.cpu_usage_millicores.toFixed(1)}m
               {m.cpu_limit_millicores != null
                 ? ` / ${m.cpu_limit_millicores.toFixed(0)}m`
@@ -201,30 +121,17 @@ export function MetricsTab({ obj, clusterId }) {
                   (m.cpu_usage_millicores / m.cpu_limit_millicores) *
                   100
                 ).toFixed(0)}%`}
+                color="#7dd3fc"
               />
             )}
           </div>
 
           {/* Memory */}
           <div>
-            <div
-              style={{
-                color: "#c4b5fd",
-                ...mono,
-                fontSize: "0.65rem",
-                marginBottom: 2,
-              }}
-            >
+            <div className={cn("font-mono text-[0.65rem] mb-0.5", "text-[#c4b5fd]")}>
               Memory
             </div>
-            <div
-              style={{
-                color: "#aac",
-                ...mono,
-                fontSize: "0.6rem",
-                marginBottom: 2,
-              }}
-            >
+            <div className={cn("font-mono text-[0.6rem] mb-0.5", "text-[#aac]")}>
               {m.mem_usage_mib.toFixed(1)} MiB
               {m.mem_limit_mib != null
                 ? ` / ${m.mem_limit_mib.toFixed(0)} MiB`
@@ -241,6 +148,7 @@ export function MetricsTab({ obj, clusterId }) {
                   (m.mem_usage_mib / m.mem_limit_mib) *
                   100
                 ).toFixed(0)}%`}
+                color="#c4b5fd"
               />
             )}
           </div>

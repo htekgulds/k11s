@@ -1,21 +1,15 @@
 import { mono } from "../../theme";
 import { kindColor, nsColor } from "../../utils/colors";
+import { cn } from "../../utils/cn";
 
 export function GraphView({ graph, onNavigate }) {
   const { nodes, edges } = graph;
   if (!nodes.length) {
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100%",
-          color: "#1a2d3d",
-          ...mono,
-          fontSize: "0.73rem",
-        }}
-      >
+      <div className={cn(
+        "flex items-center justify-center h-full",
+        "text-[#1a2d3d] font-mono text-[0.73rem]"
+      )}>
         No related resources found
       </div>
     );
@@ -33,17 +27,10 @@ export function GraphView({ graph, onNavigate }) {
   const isErr = (nd) => ["error", "CrashLoopBackOff", "NotReady", "Error", "OOMKilled"].includes(nd.status);
 
   return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "auto",
-      }}
-    >
-      <svg viewBox="0 0 1000 460" style={{ width: "100%", maxWidth: 1000, minHeight: 280 }}>
+    <div className={cn(
+      "w-full h-full flex items-center justify-center overflow-auto"
+    )}>
+      <svg viewBox="0 0 1000 460" className="w-full max-w-[1000px] min-h-[280px]">
         <defs>
           <marker id="arr" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
             <path d="M0,0 L0,7 L7,3.5 z" fill="#1e3a52" />
@@ -99,7 +86,7 @@ export function GraphView({ graph, onNavigate }) {
           const err = isErr(nd);
           const rad = i === 0 ? 44 : 32;
           return (
-            <g key={nd.id} style={{ cursor: "pointer" }} onClick={() => onNavigate?.(nd)}>
+            <g key={nd.id} className="cursor-pointer" onClick={() => onNavigate?.(nd)}>
               {err && (
                 <circle
                   cx={nd.x}

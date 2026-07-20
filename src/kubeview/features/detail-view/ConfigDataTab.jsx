@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
-import { mono } from "../../theme";
+import { useState, useMemo, useEffect } from "react";
 import { listConfigData } from "../../api";
+import { cn } from "../../utils/cn";
+import { Spinner } from "../../components/ui/Spinner";
 
-function obfuscate(val) {
-  return "\u2022\u2022\u2022\u2022 (base64 encoded)";
+function obfuscate() {
+  return "•••• (base64 encoded)";
 }
 
 function truncate(val, max = 200) {
@@ -18,23 +19,29 @@ export function ConfigDataTab({ kind, name, namespace, clusterId }) {
   const [filter, setFilter] = useState("");
   const [revealed, setRevealed] = useState({});
 
-  useMemo(() => {
+  useEffect(() => {
     if (!kind || !name || !namespace) {
       setEntries([]);
       setLoading(false);
       return;
     }
+    let cancelled = false;
     setLoading(true);
     setError(null);
     listConfigData(clusterId, kind, name, namespace)
       .then((data) => {
-        setEntries(data || []);
-        setLoading(false);
+        if (!cancelled) {
+          setEntries(data || []);
+          setLoading(false);
+        }
       })
       .catch((err) => {
-        setError(String(err));
-        setLoading(false);
+        if (!cancelled) {
+          setError(String(err));
+          setLoading(false);
+        }
       });
+    return () => { cancelled = true; };
   }, [kind, name, namespace, clusterId]);
 
   const filtered = useMemo(() => {
@@ -49,261 +56,122 @@ export function ConfigDataTab({ kind, name, namespace, clusterId }) {
   };
 
   const sourceLabel = (entry) => {
-    const color = entry.source_kind === "Secret" ? "#fb923c" : "#c4b5fd";
+    const color = entry.source_kind === "Secret" ? "text-[#fb923c]" : "text-[#c4b5fd]";
     return { label: `${entry.source_kind}/${entry.source_name}`, color };
   };
 
   if (loading) {
     return (
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          color: "#39ff8a",
-          ...mono,
-          fontSize: "0.76rem",
-        }}
-      >
-        Loading config data…
+      <div className={cn("flex-1 flex items-center justify-center gap-2", "text-[#39ff8a] font-mono text-[0.76rem]")}>
+        <Spinner /> Loading config data…
       </div>
     );
   }
 
   if (error) {
     return (
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#ff4d4d",
-          ...mono,
-          fontSize: "0.76rem",
-          padding: 20,
-        }}
-      >
+      <div className={cn("flex-1 flex items-center justify-center", "text-[#ff4d4d] font-mono text-[0.76rem] p-5")}>
         {error}
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
-      {/* Filter toolbar */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 7,
-          padding: "4px 12px",
-          background: "#050910",
-          borderBottom: "1px solid #080e18",
-          flexShrink: 0,
-        }}
-      >
-        <input
-          type="text"
-          placeholder="Filter by key…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          style={{
-            flex: 1,
-            background: "#0a1420",
-            border: "1px solid #12202e",
-            borderRadius: 3,
-            color: "#d4e6f5",
-            padding: "3px 8px",
-            ...mono,
-            fontSize: "0.7rem",
-            outline: "none",
-          }}
-        />
-        <span
-          style={{ color: "#0a1420", ...mono, fontSize: "0.62rem" }}
-        >
-          {(entries || []).length} entries
-        </span>
-      </div>
-
-      {/* Table */}
-      <div style={{ flex: 1, overflow: "auto" }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            ...mono,
-            fontSize: "0.74rem",
-          }}
-        >
-          <thead>
-            <tr
-              style={{
-                background: "#050910",
-                color: "#4a7a8a",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                fontSize: "0.65rem",
-                position: "sticky",
-                top: 0,
-                zIndex: 1,
-              }}
-            >
-              <th
-                style={{
-                  padding: "6px 10px",
-                  textAlign: "left",
-                  borderBottom: "1px solid #080e18",
-                }}
-              >
-                Key
-              </th>
-              <th
-                style={{
-                  padding: "6px 10px",
-                  textAlign: "left",
-                  borderBottom: "1px solid #080e18",
-                }}
-              >
-                Value
-              </th>
-              <th
-                style={{
-                  padding: "6px 10px",
-                  textAlign: "left",
-                  borderBottom: "1px solid #080e18",
-                  width: 70,
-                }}
-              >
-                Binary
-              </th>
-              <th
-                style={{
-                  padding: "6px 10px",
-                  textAlign: "left",
-                  borderBottom: "1px solid #080e18",
-                }}
-              >
-                Source
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={4}
-                  style={{
-                    padding: "20px",
-                    textAlign: "center",
-                    color: "#4a7a8a",
-                  }}
-                >
-                  {entries && entries.length === 0
-                    ? "No data entries"
-                    : "No matching entries"}
-                </td>
-              </tr>
-            ) : (
-              filtered.map((entry, i) => {
-                const src = sourceLabel(entry);
-                const isRevealed = revealed[entry.key];
-                const displayValue =
-                  entry.binary || entry.source_kind === "Secret"
-                    ? isRevealed
-                      ? entry.value
-                      : obfuscate()
-                    : entry.value;
-                const showToggle =
-                  entry.binary || entry.source_kind === "Secret";
-                const shortValue = truncate(displayValue);
-
-                return (
-                  <tr
-                    key={entry.key + "-" + i}
-                    style={{
-                      background:
-                        i % 2 === 0
-                          ? "transparent"
-                          : "rgba(255,255,255,0.015)",
-                      borderBottom: "1px solid #080e18",
-                    }}
-                  >
-                    <td
-                      style={{
-                        padding: "5px 10px",
-                        color: "#d4e6f5",
-                        fontWeight: 600,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {entry.key}
-                    </td>
-                    <td
-                      style={{
-                        padding: "5px 10px",
-                        color: "#a0c0d0",
-                        maxWidth: 400,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        wordBreak: "break-all",
-                      }}
-                    >
-                      {shortValue}
-                      {showToggle && (
-                        <button
-                          type="button"
-                          onClick={() => toggleReveal(entry.key)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "#39ff8a",
-                            cursor: "pointer",
-                            ...mono,
-                            fontSize: "0.65rem",
-                            marginLeft: 6,
-                            textDecoration: "underline",
-                            textUnderlineOffset: 2,
-                          }}
-                        >
-                          {isRevealed ? "hide" : "reveal"}
-                        </button>
-                      )}
-                    </td>
-                    <td
-                      style={{
-                        padding: "5px 10px",
-                        color: entry.binary ? "#fb923c" : "#4a7a8a",
-                      }}
-                    >
-                      {entry.binary ? "\u2713" : "\u2014"}
-                    </td>
-                    <td
-                      style={{
-                        padding: "5px 10px",
-                        color: src.color,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {src.label}
-                    </td>
-                  </tr>
-                );
-              })
+      <div className="h-full flex flex-col overflow-hidden">
+        {/* Filter toolbar */}
+        <div className={cn(
+          "flex items-center gap-2 px-3 py-[4px] flex-shrink-0",
+          "bg-[#050910] border-b border-[#080e18]"
+        )}>
+          <input
+            type="text"
+            placeholder="Filter by key…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className={cn(
+              "flex-1 rounded px-2 py-[3px] font-mono text-[0.7rem] outline-none",
+              "bg-[#0a1420] border border-[#12202e] text-[#d4e6f5]",
+              "focus:border-[#39ff8a]"
             )}
-          </tbody>
-        </table>
+          />
+          <span className={cn("font-mono text-[0.62rem]", "text-[#0a1420]")}>
+            {(entries || []).length} entries
+          </span>
+        </div>
+
+        {/* Table */}
+        <div className="flex-1 overflow-auto">
+          <table className={cn("w-full border-collapse font-mono text-[0.74rem]")}>
+            <thead>
+              <tr className={cn(
+                "bg-[#050910] text-[#4a7a8a] uppercase tracking-[0.05em]",
+                "text-[0.65rem] sticky top-0 z-10"
+              )}>
+                <th className={cn("px-[10px] py-[6px] text-left border-b border-[#080e18]")}>Key</th>
+                <th className={cn("px-[10px] py-[6px] text-left border-b border-[#080e18]")}>Value</th>
+                <th className={cn("px-[10px] py-[6px] text-left border-b border-[#080e18] w-[70px]")}>Binary</th>
+                <th className={cn("px-[10px] py-[6px] text-left border-b border-[#080e18]")}>Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="p-5 text-center text-[#4a7a8a]">
+                    {entries && entries.length === 0 ? "No data entries" : "No matching entries"}
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((entry, i) => {
+                  const src = sourceLabel(entry);
+                  const isRevealed = revealed[entry.key];
+                  const displayValue =
+                    entry.binary || entry.source_kind === "Secret"
+                      ? isRevealed
+                        ? entry.value
+                        : obfuscate()
+                      : entry.value;
+                  const showToggle = entry.binary || entry.source_kind === "Secret";
+                  const shortValue = truncate(displayValue);
+
+                  return (
+                    <tr
+                      key={entry.key + "-" + i}
+                      className={cn(
+                        "border-b border-[#080e18]",
+                        i % 2 === 0 ? "bg-transparent" : "bg-white/[0.015]"
+                      )}
+                    >
+                      <td className={cn("px-[10px] py-[5px] font-semibold text-[#d4e6f5] whitespace-nowrap")}>
+                        {entry.key}
+                      </td>
+                      <td className={cn("px-[10px] py-[5px] text-[#a0c0d0] max-w-[400px] overflow-hidden text-ellipsis word-break-all")}>
+                        {shortValue}
+                        {showToggle && (
+                          <button
+                            type="button"
+                            onClick={() => toggleReveal(entry.key)}
+                            className={cn(
+                              "ml-1.5 font-mono text-[0.65rem] cursor-pointer text-[#39ff8a] underline underline-offset-1",
+                              "bg-transparent border-none"
+                            )}
+                          >
+                            {isRevealed ? "hide" : "reveal"}
+                          </button>
+                        )}
+                      </td>
+                      <td className={cn("px-[10px] py-[5px] whitespace-nowrap", entry.binary ? "text-[#fb923c]" : "text-[#4a7a8a]")}>
+                        {entry.binary ? "✓" : "—"}
+                      </td>
+                      <td className={cn("px-[10px] py-[5px] whitespace-nowrap", src.color)}>
+                        {src.label}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  );
+    );
 }

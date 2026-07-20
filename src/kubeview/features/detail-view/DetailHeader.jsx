@@ -5,26 +5,17 @@ import { nsColor } from "../../utils/colors";
 import { Pill } from "../../components/ui/Pill";
 import { k8sInvoke, rolloutAction } from "../../api";
 import { useState } from "react";
+import { cn } from "../../utils/cn";
 
 const copyBtn = (txt, label) => (
   <button
     type="button"
     title={`Copy ${label}`}
     onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(txt); }}
-    style={{
-      background: "none",
-      border: "none",
-      cursor: "pointer",
-      color: "#1e3a52",
-      padding: "1px 3px",
-      borderRadius: 3,
-      display: "inline-flex",
-      alignItems: "center",
-      opacity: 0.4,
-      transition: "opacity 0.1s",
-    }}
-    onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
-    onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.4"; }}
+    className={cn(
+      "inline-flex items-center p-[1px_3px] rounded text-[0.5rem] cursor-pointer transition-opacity",
+      "bg-transparent border-none text-[#1e3a52] opacity-40 hover:opacity-100"
+    )}
   >
     <Copy size={12} />
   </button>
@@ -102,108 +93,98 @@ export function DetailHeader({ obj, type, onGoTab, clusterId }) {
 
   const closeAllModals = () => { setForwardOpen(false); setForwardPort(""); setShowShellPicker(false); };
 
+  const actionBtnStyle = (a) => cn(
+    "px-[9px] py-[4px] rounded text-[0.67rem] font-mono cursor-pointer transition-all",
+    "flex items-center gap-1.5",
+    `border border-${a.color}28 bg-[#0a1018] text-[${a.color}]`,
+    "hover:bg-[${a.color}10]",
+    feedback?.status === "running" && "cursor-wait opacity-50"
+  );
+
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: 11, marginBottom: 11 }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginBottom: 4 }}>
-          <span style={{ ...mono, fontWeight: 700, fontSize: "0.92rem", color: "#dde", wordBreak: "break-all" }}>
+    <div className="flex items-start gap-[11px] mb-[11px]">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-[7px] flex-wrap mb-1">
+          <span className={cn(
+            "font-mono font-bold text-[0.92rem] text-[#dde] break-all"
+          )}>
             {obj.name}
           </span>
           {copyBtn(obj.name, "name")}
           {obj.namespace && copyBtn(`${obj.namespace}/${obj.name}`, "namespace/name")}
           <Pill label={kindLbl} color={statCol} />
-          {isErr && <Pill label={<span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><AlertTriangle size={12} /> degraded</span>} color="#ff4d4d" />}
+          {isErr && (
+            <Pill
+              label={<span className="inline-flex items-center gap-[3px]"><AlertTriangle size={12} /> degraded</span>}
+              color="#ff4d4d"
+            />
+          )}
         </div>
-        <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
+        <div className="flex gap-[9px] flex-wrap">
           {obj.namespace && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-              <span style={{ fontSize: "0.67rem", color: nsColor(obj.namespace), ...mono }}>
+            <span className="inline-flex items-center gap-[3px]">
+              <span style={{ fontSize: "0.67rem", color: nsColor(obj.namespace) }} className="font-mono">
                 ns/{obj.namespace}
               </span>
               {copyBtn(obj.namespace, "namespace")}
             </span>
           )}
           {obj.age && (
-            <span style={{ fontSize: "0.67rem", color: "#1e3a52", ...mono }}>age/{obj.age}</span>
+            <span style={{ fontSize: "0.67rem", color: "#1e3a52" }} className="font-mono">
+              age/{obj.age}
+            </span>
           )}
         </div>
       </div>
-      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", flexShrink: 0 }}>
+      <div className="flex gap-[5px] flex-wrap flex-shrink-0">
         {actions.map((a) => (
           <button
             key={a.label}
             type="button"
             onClick={a.fn}
             disabled={feedback?.status === "running"}
-            style={{
-              background: "#0a1018",
-              border: `1px solid ${a.color}28`,
-              borderRadius: 4,
-              color: a.color,
-              cursor: feedback?.status === "running" ? "wait" : "pointer",
-              padding: "4px 9px",
-              ...mono,
-              fontSize: "0.67rem",
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              opacity: feedback?.status === "running" && feedback?.action === a.label.toLowerCase() ? 0.5 : 1,
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = `${a.color}10`;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#0a1018";
-            }}
+            className={actionBtnStyle(a)}
           >
             {a.icon}
             <span>{a.label}</span>
           </button>
         ))}
         {feedback && (
-          <span style={{
-            ...mono, fontSize: "0.62rem", color: feedback.status === "err" ? "#ff4d4d" : "#39ff8a",
-            alignSelf: "center", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }}>
-            {feedback.status === "running" ? `${feedback.action}…` : feedback.msg || (feedback.status === "ok" ? "✓ done" : "✗ failed")}
+          <span className={cn(
+            "items-center self-center max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[0.62rem]",
+            feedback.status === "err" ? "text-[#ff4d4d]" : "text-[#39ff8a]"
+          )}>
+            {feedback.status === "running"
+              ? `${feedback.action}…`
+              : feedback.msg || (feedback.status === "ok" ? "✓ done" : "✗ failed")}
           </span>
         )}
       </div>
 
       {(forwardOpen || showShellPicker) && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 10000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(0,0,0,0.6)",
-          }}
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60"
           onClick={closeAllModals}
         >
           <div
-            style={{
-              background: "#0a1018",
-              border: forwardOpen ? "1px solid #fb923c40" : "1px solid #c4b5fd40",
-              borderRadius: 8,
-              padding: 20,
-              minWidth: 300,
-              ...mono,
-            }}
+            className={cn(
+              "p-5 rounded-lg min-w-[300px] font-mono",
+              forwardOpen
+                ? "bg-[#0a1018] border border-[#fb923c40]"
+                : "bg-[#0a1018] border border-[#c4b5fd40]"
+            )}
             onClick={(e) => e.stopPropagation()}
           >
             {forwardOpen ? (
               <>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                <div className="flex items-center gap-2 mb-[14px]">
                   <ArrowRightLeft size={18} color="#fb923c" />
                   <span style={{ color: "#fb923c", fontWeight: 700, fontSize: "0.85rem" }}>
                     Port Forward
                   </span>
                 </div>
 
-                <div style={{ marginBottom: 14, fontSize: "0.72rem", lineHeight: "1.6" }}>
+                <div className="mb-[14px] text-[0.72rem] leading-[1.6]">
                   <span style={{ color: "#889" }}>Pod: </span>
                   <span style={{ color: "#bcc", fontWeight: 600 }}>{obj.name}</span>
                   {obj.namespace && (
@@ -215,8 +196,8 @@ export function DetailHeader({ obj, type, onGoTab, clusterId }) {
                   )}
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ color: "#889", fontSize: "0.67rem", display: "flex", alignItems: "center", gap: 6 }}>
+                <div className="mb-[16px]">
+                  <label className="flex items-center gap-2" style={{ color: "#889", fontSize: "0.67rem" }}>
                     Remote port:
                     <input
                       type="number"
@@ -225,18 +206,11 @@ export function DetailHeader({ obj, type, onGoTab, clusterId }) {
                       value={forwardPort}
                       onChange={(e) => setForwardPort(e.target.value)}
                       placeholder="e.g. 8080"
-                      style={{
-                        background: "#080e18",
-                        border: "1px solid #1e3a52",
-                        borderRadius: 3,
-                        color: "#bcc",
-                        padding: "4px 8px",
-                        ...mono,
-                        fontSize: "0.68rem",
-                        outline: "none",
-                        width: 120,
-                      }}
                       onKeyDown={(e) => { if (e.key === "Enter") handlePortForward(); }}
+                      className={cn(
+                        "px-2 py-1 rounded text-[0.68rem] font-mono outline-none w-[120px]",
+                        "bg-[#080e18] border border-[#1e3a52] text-[#bcc]"
+                      )}
                     />
                   </label>
                   <div style={{ color: "#667", fontSize: "0.62rem", marginTop: 6 }}>
@@ -244,44 +218,31 @@ export function DetailHeader({ obj, type, onGoTab, clusterId }) {
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <div className="flex gap-2 justify-end">
                   <button
                     type="button"
                     onClick={() => { setForwardOpen(false); setForwardPort(""); }}
-                    style={{
-                      background: "transparent",
-                      border: "1px solid #66728",
-                      borderRadius: 4,
-                      color: "#667",
-                      cursor: "pointer",
-                      padding: "4px 9px",
-                      ...mono,
-                      fontSize: "0.67rem",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
+                    className={cn(
+                      "px-[9px] py-[4px] rounded text-[0.67rem] font-mono cursor-pointer",
+                      "flex items-center gap-1.5",
+                      "bg-transparent border border-[#66728] text-[#667]",
+                      "hover:bg-[#0a1420] hover:border-[#1a3a4a]"
+                    )}
                   >
                     <ArrowRightLeft size={12} /> Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handlePortForward}
-                    style={{
-                      background: "#0a1018",
-                      border: `1px solid ${forwardPort ? "#fb923c28" : "#66728"}`,
-                      borderRadius: 4,
-                      color: forwardPort ? "#fb923c" : "#667",
-                      cursor: forwardPort ? "pointer" : "default",
-                      padding: "4px 9px",
-                      ...mono,
-                      fontSize: "0.67rem",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                      opacity: forwardPort ? 1 : 0.5,
-                    }}
                     disabled={!forwardPort}
+                    className={cn(
+                      "px-[9px] py-[4px] rounded text-[0.67rem] font-mono cursor-pointer",
+                      "flex items-center gap-1.5",
+                      "bg-[#0a1018] border text-[#fb923c]",
+                      forwardPort
+                        ? "border-[#fb923c28] cursor-pointer opacity-100 hover:bg-[#fb923c10]"
+                        : "border-[#66728] cursor-default opacity-50"
+                    )}
                   >
                     <ArrowRightLeft size={12} /> Forward
                   </button>
@@ -289,14 +250,14 @@ export function DetailHeader({ obj, type, onGoTab, clusterId }) {
               </>
             ) : (
               <>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                <div className="flex items-center gap-2 mb-[14px]">
                   <Terminal size={18} color="#c4b5fd" />
                   <span style={{ color: "#c4b5fd", fontWeight: 700, fontSize: "0.85rem" }}>
                     Open Shell
                   </span>
                 </div>
 
-                <div style={{ marginBottom: 14, fontSize: "0.72rem", lineHeight: "1.6" }}>
+                <div className="mb-[14px] text-[0.72rem] leading-[1.6]">
                   <span style={{ color: "#889" }}>Pod: </span>
                   <span style={{ color: "#bcc", fontWeight: 600 }}>{obj.name}</span>
                   {obj.namespace && (
@@ -318,26 +279,15 @@ export function DetailHeader({ obj, type, onGoTab, clusterId }) {
                     type="button"
                     onClick={() => {
                       navigator.clipboard.writeText(
-                        `kubectl exec -it ${obj.name} -c ${c} -n ${obj.namespace} -- sh`,
+                        `kubectl exec -it ${obj.name} -c ${c} -n ${obj.namespace} -- sh`
                       );
                       setShowShellPicker(false);
                     }}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      textAlign: "left",
-                      background: "#080e18",
-                      border: "1px solid #1e3a52",
-                      borderRadius: 4,
-                      color: "#bcc",
-                      cursor: "pointer",
-                      padding: "6px 10px",
-                      ...mono,
-                      fontSize: "0.72rem",
-                      marginBottom: 5,
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = "#0e1f2e"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "#080e18"; }}
+                    className={cn(
+                      "w-full text-left p-[6px_10px] rounded text-[0.72rem] font-mono cursor-pointer mb-1",
+                      "bg-[#080e18] border border-[#1e3a52] text-[#bcc]",
+                      "hover:bg-[#0e1f2e]"
+                    )}
                   >
                     {c}
                     <span style={{ color: "#667", fontSize: "0.62rem", marginLeft: 8 }}>
@@ -346,20 +296,15 @@ export function DetailHeader({ obj, type, onGoTab, clusterId }) {
                   </button>
                 ))}
 
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+                <div className="flex justify-end mt-[10px]">
                   <button
                     type="button"
                     onClick={() => setShowShellPicker(false)}
-                    style={{
-                      background: "transparent",
-                      border: "1px solid #66728",
-                      borderRadius: 4,
-                      color: "#667",
-                      cursor: "pointer",
-                      padding: "4px 9px",
-                      ...mono,
-                      fontSize: "0.67rem",
-                    }}
+                    className={cn(
+                      "px-[9px] py-[4px] rounded text-[0.67rem] font-mono cursor-pointer",
+                      "bg-transparent border border-[#66728] text-[#667]",
+                      "hover:bg-[#0a1420] hover:border-[#1a3a4a]"
+                    )}
                   >
                     Cancel
                   </button>

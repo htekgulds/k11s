@@ -5,7 +5,7 @@ import {
   execPodStop,
   onShellOutput,
 } from "../../api";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 
 export function ShellTab({ obj, clusterId }) {
   const [sessionId, setSessionId] = useState(null);
@@ -21,15 +21,14 @@ export function ShellTab({ obj, clusterId }) {
     setError(null);
     setLines([{ type: "info", data: "Connecting…" }]);
     try {
-      const sid = await execPodShell(
-        clusterId,
-        obj.namespace,
-        obj.name,
-        null,
-      );
+      const sid = await execPodShell(clusterId, obj.namespace, obj.name, null);
       setSessionId(sid);
-      setLines([{ type: "info", data: `Session ${sid.slice(0, 12)}… started. Type commands below.` }]);
-      // Focus the input
+      setLines([
+        {
+          type: "info",
+          data: `Session ${sid.slice(0, 12)}… started. Type commands below.`,
+        },
+      ]);
       setTimeout(() => inputRef.current?.focus(), 100);
     } catch (err) {
       setError(String(err));
@@ -108,45 +107,27 @@ export function ShellTab({ obj, clusterId }) {
   };
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div className="flex-1 flex flex-col overflow-hidden">
       {/* Toolbar */}
-      <div
-        style={{
-          padding: "5px 13px",
-          borderBottom: "1px solid #0a1018",
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          background: "#050910",
-          flexShrink: 0,
-        }}
-      >
-        <span
-          style={{
-            fontSize: "0.59rem",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: "#39ff8a",
-            ...mono,
-          }}
-        >
+      <div className={cn(
+        "px-3.5 py-[5px] border-b border-[#0a1018] flex items-center gap-2",
+        "bg-[#050910] flex-shrink-0"
+      )}>
+        <span className={cn(
+          "text-[0.59rem] uppercase tracking-[0.1em] font-mono",
+          running ? "text-[#39ff8a]" : "text-[#556]"
+        )}>
           {running ? "🟢 shell" : "⏹ shell"}
         </span>
         {!running && !error && (
           <button
             type="button"
             onClick={startShell}
-            style={{
-              marginLeft: "auto",
-              background: "none",
-              border: "1px solid #0e1f2e",
-              borderRadius: 3,
-              color: "#39ff8a",
-              cursor: "pointer",
-              padding: "2px 7px",
-              ...mono,
-              fontSize: "0.67rem",
-            }}
+            className={cn(
+              "ml-auto px-2 py-[2px] rounded text-[0.67rem] font-mono cursor-pointer",
+              "bg-transparent border border-[#0e1f2e] text-[#39ff8a]",
+              "hover:bg-[#0a1420] hover:border-[#1a3a4a]"
+            )}
           >
             ▶ start
           </button>
@@ -159,17 +140,11 @@ export function ShellTab({ obj, clusterId }) {
               setSessionId(null);
               setRunning(false);
             }}
-            style={{
-              marginLeft: "auto",
-              background: "none",
-              border: "1px solid #3a1a1a",
-              borderRadius: 3,
-              color: "#ff6b6b",
-              cursor: "pointer",
-              padding: "2px 7px",
-              ...mono,
-              fontSize: "0.67rem",
-            }}
+            className={cn(
+              "ml-auto px-2 py-[2px] rounded text-[0.67rem] font-mono cursor-pointer",
+              "bg-transparent border border-[#3a1a1a] text-[#ff6b6b]",
+              "hover:bg-[#1a0a0a] hover:border-[#5a1a1a]"
+            )}
           >
             ■ stop
           </button>
@@ -179,25 +154,15 @@ export function ShellTab({ obj, clusterId }) {
       {/* Terminal output */}
       <div
         ref={scrollRef}
-        style={{
-          flex: 1,
-          overflow: "auto",
-          padding: "8px 13px",
-          background: "#020408",
-        }}
+        className={cn(
+          "flex-1 overflow-auto p-[8px_13px] bg-[#020408]"
+        )}
       >
-        <pre
-          style={{
-            margin: 0,
-            ...mono,
-            fontSize: "0.71rem",
-            lineHeight: 1.7,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-          }}
-        >
+        <pre className={cn(
+          "m-0 font-mono text-[0.71rem] leading-[1.7] whitespace-pre-wrap break-all"
+        )}>
           {lines.length === 0 ? (
-            <span style={{ color: "#1e3a52" }}>
+            <span className="text-[#1e3a52]">
               {error ? "Connection failed" : 'Press "▶ start" to open a shell'}
             </span>
           ) : (
@@ -206,12 +171,12 @@ export function ShellTab({ obj, clusterId }) {
                 line.type === "stderr"
                   ? "#ff6b6b"
                   : line.type === "error"
-                    ? "#ff4444"
-                    : line.type === "info"
-                      ? "#1e3a52"
-                      : "#bcc"; // stdout
+                  ? "#ff4444"
+                  : line.type === "info"
+                  ? "#1e3a52"
+                  : "#bcc"; // stdout
               return (
-                <span key={i} style={{ display: "block" }}>
+                <span key={i} className="block">
                   <span style={{ color }}>{line.data}</span>
                 </span>
               );
@@ -224,22 +189,14 @@ export function ShellTab({ obj, clusterId }) {
       {sessionId && (
         <form
           onSubmit={handleSubmit}
-          style={{
-            display: "flex",
-            borderTop: "1px solid #0a1018",
-            background: "#020408",
-            flexShrink: 0,
-          }}
+          className={cn(
+            "flex border-t border-[#0a1018] bg-[#020408] flex-shrink-0"
+          )}
         >
-          <span
-            style={{
-              padding: "6px 10px",
-              color: "#39ff8a",
-              ...mono,
-              fontSize: "0.7rem",
-              userSelect: "none",
-            }}
-          >
+          <span className={cn(
+            "px-[10px] py-[6px] font-mono text-[0.7rem] select-none",
+            "text-[#39ff8a]"
+          )}>
             $
           </span>
           <input
@@ -248,16 +205,10 @@ export function ShellTab({ obj, clusterId }) {
             onChange={(e) => setCmd(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="type a command…"
-            style={{
-              flex: 1,
-              background: "none",
-              border: "none",
-              outline: "none",
-              color: "#ccd",
-              ...mono,
-              fontSize: "0.72rem",
-              padding: "6px 4px",
-            }}
+            className={cn(
+              "flex-1 bg-transparent border-none outline-none",
+              "text-[#ccd] font-mono text-[0.72rem] px-1 py-[6px]"
+            )}
           />
         </form>
       )}

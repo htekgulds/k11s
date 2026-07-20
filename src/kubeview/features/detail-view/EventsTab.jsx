@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { k8sInvoke } from "../../api";
 import { exportContent } from "../../api/export";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 import { Spinner } from "../../components/ui/Spinner";
 
 export function EventsTab({ obj, clusterId }) {
@@ -31,29 +31,25 @@ export function EventsTab({ obj, clusterId }) {
 
   const items = events?.events || [];
   const eventsText = items.length
-    ? items.map((ev) =>
-        `[${ev.type}] ${ev.reason} (${ev.age})\n  From: ${ev.from}\n  Message: ${ev.message}`
-      ).join("\n\n")
+    ? items
+        .map(
+          (ev) =>
+            `[${ev.type}] ${ev.reason} (${ev.age})\n  From: ${ev.from}\n  Message: ${ev.message}`
+        )
+        .join("\n\n")
     : "No events";
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "5px 10px",
-          background: "#050910",
-          borderBottom: "1px solid #0e1f2e",
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ color: "#7dd3fc", ...mono, fontSize: "0.67rem" }}>
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={cn(
+        "flex items-center gap-2 px-[10px] py-[5px] border-b border-[#0e1f2e] flex-shrink-0",
+        "bg-[#050910]"
+      )}>
+        <span className={cn("font-mono text-[0.67rem]", "text-[#7dd3fc]")}>
           events
         </span>
         {fetching && <Spinner />}
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
         <button
           type="button"
           onClick={() => exportContent(
@@ -61,85 +57,69 @@ export function EventsTab({ obj, clusterId }) {
             `${obj.name}_events.txt`,
             [{ name: "Text", extensions: ["txt"] }],
           )}
-          style={{
-            background: "none",
-            border: "1px solid #0e1f2e",
-            borderRadius: 3,
-            color: "#4a7a8a",
-            cursor: "pointer",
-            padding: "2px 7px",
-            ...mono,
-            fontSize: "0.67rem",
-          }}
+          className={cn(
+            "px-2 py-[2px] rounded text-[0.67rem] font-mono cursor-pointer",
+            "bg-transparent border border-[#0e1f2e] text-[#4a7a8a]",
+            "hover:bg-[#0a1420] hover:border-[#1a3a4a] hover:text-[#7dd3fc]"
+          )}
           title="Export to file"
         >
           ⬇ export
         </button>
       </div>
-      <div style={{ flex: 1, overflowY: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", ...mono, fontSize: "0.71rem" }}>
-        <thead>
-          <tr style={{ position: "sticky", top: 0, background: "#050910" }}>
-            {["Type", "Reason", "Age", "From", "Message"].map((h) => (
-              <th
-                key={h}
-                style={{
-                  textAlign: "left",
-                  padding: "7px 13px",
-                  color: "#1e3a52",
-                  fontWeight: 700,
-                  fontSize: "0.61rem",
-                  letterSpacing: "0.09em",
-                  textTransform: "uppercase",
-                  borderBottom: "1px solid #0a1018",
-                }}
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {fetching ? (
-            <tr>
-              <td colSpan={5} style={{ padding: 20 }}>
-                <div style={{ color: "#39ff8a", ...mono, fontSize: "0.72rem", display: "flex", gap: 6 }}>
-                  <Spinner /> Loading…
-                </div>
-              </td>
+      <div className="flex-1 overflow-y-auto">
+        <table className={cn("w-full border-collapse font-mono text-[0.71rem]")}>
+          <thead>
+            <tr className="sticky top-0 bg-[#050910]">
+              {["Type", "Reason", "Age", "From", "Message"].map((h) => (
+                <th
+                  key={h}
+                  className={cn(
+                    "text-left px-[13px] py-[7px] font-bold text-[0.61rem] uppercase tracking-[0.09em]",
+                    "text-[#1e3a52] border-b border-[#0a1018]"
+                  )}
+                >
+                  {h}
+                </th>
+              ))}
             </tr>
-          ) : (
-            items.map((ev, i) => (
-              <tr key={i} style={{ borderBottom: "1px solid #080e18" }}>
-                <td
-                  style={{
-                    padding: "7px 13px",
-                    color: ev.type === "Warning" ? "#f5c518" : "#39ff8a",
-                    fontWeight: 700,
-                  }}
-                >
-                  {ev.type}
-                </td>
-                <td style={{ padding: "7px 13px", color: "#7dd3fc" }}>{ev.reason}</td>
-                <td style={{ padding: "7px 13px", color: "#1e3a52" }}>{ev.age}</td>
-                <td style={{ padding: "7px 13px", color: "#2d4a6a" }}>{ev.from}</td>
-                <td
-                  style={{
-                    padding: "7px 13px",
-                    color: "#6a8898",
-                    maxWidth: 300,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {ev.message}
+          </thead>
+          <tbody>
+            {fetching ? (
+              <tr>
+                <td colSpan={5} className="p-5">
+                  <div className={cn("flex items-center gap-2 font-mono text-[0.72rem]", "text-[#39ff8a]")}>
+                    <Spinner /> Loading…
+                  </div>
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ) : (
+              items.map((ev, i) => (
+                <tr key={i} className="border-b border-[#080e18]">
+                  <td
+                    className={cn(
+                      "px-[13px] py-[7px] font-bold",
+                      ev.type === "Warning" ? "text-[#f5c518]" : "text-[#39ff8a]"
+                    )}
+                  >
+                    {ev.type}
+                  </td>
+                  <td className="px-[13px] py-[7px] text-[#7dd3fc]">{ev.reason}</td>
+                  <td className="px-[13px] py-[7px] text-[#1e3a52]">{ev.age}</td>
+                  <td className="px-[13px] py-[7px] text-[#2d4a6a]">{ev.from}</td>
+                  <td
+                    className={cn(
+                      "px-[13px] py-[7px] max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap",
+                      "text-[#6a8898]"
+                    )}
+                  >
+                    {ev.message}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

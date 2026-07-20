@@ -1,71 +1,45 @@
-import { mono } from "../../theme";
-import { nsColor } from "../../utils/colors";
+import { useMemo } from "react";
+import { cn } from "../../utils/cn";
 import { StatusDot } from "../../components/ui/StatusDot";
+import { nsColor } from "../../utils/colors";
 
-export function HelmReleasesTab({
-  data,
-  loading,
-  filter,
-}) {
-  const rows = data.filter((r) => {
-    const txOk =
-      !filter || Object.values(r).some((v) => String(v).toLowerCase().includes(filter.toLowerCase()));
-    return txOk;
-  });
+export function HelmReleasesTab({ data, loading, filter }) {
+  const rows = useMemo(() => {
+    if (!data) return [];
+    if (!filter) return data;
+    const lf = filter.toLowerCase();
+    return data.filter((r) =>
+      Object.values(r).some((v) => String(v).toLowerCase().includes(lf))
+    );
+  }, [data, filter]);
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 7,
-          padding: "4px 12px",
-          background: "#050910",
-          borderBottom: "1px solid #080e18",
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ color: "#0a1420", ...mono, fontSize: "0.62rem" }}>
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className={cn(
+        "flex items-center gap-1.5 px-3 py-[4px] flex-shrink-0",
+        "bg-[#050910] border-b border-[#080e18]"
+      )}>
+        <span className={cn("font-mono text-[0.62rem]", "text-[#0a1420]")}>
           {(data || []).length} releases
         </span>
       </div>
       {loading ? (
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            color: "#39ff8a",
-            ...mono,
-            fontSize: "0.76rem",
-          }}
-        >
+        <div className={cn("flex-1 flex items-center justify-center gap-2", "text-[#39ff8a] font-mono text-[0.76rem]")}>
           Loading helm releases…
         </div>
       ) : (
-        <div style={{ flex: 1, overflow: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", ...mono, fontSize: "0.74rem" }}>
+        <div className="flex-1 overflow-auto">
+          <table className={cn("w-full border-collapse font-mono text-[0.74rem]")}>
             <thead>
-              <tr style={{ position: "sticky", top: 0, background: "#050910", zIndex: 5 }}>
+              <tr className={cn("sticky top-0 z-5 bg-[#050910]")}>
                 {["name", "namespace", "chart", "version", "status", "revision", "updated"].map((c) => (
                   <th
                     key={c}
-                    style={{
-                      padding: "7px 13px",
-                      textAlign: "left",
-                      color: "#1e3a52",
-                      fontWeight: 700,
-                      fontSize: "0.61rem",
-                      letterSpacing: "0.09em",
-                      textTransform: "uppercase",
-                      borderBottom: "1px solid #0a1018",
-                      cursor: "pointer",
-                      userSelect: "none",
-                      whiteSpace: "nowrap",
-                    }}
+                    className={cn(
+                      "px-[13px] py-[7px] text-left",
+                      "text-[#1e3a52] font-bold text-[0.61rem] uppercase tracking-[0.09em]",
+                      "border-b border-[#0a1018] cursor-pointer select-none whitespace-nowrap"
+                    )}
                   >
                     {c.replace(/_/g, " ")}
                   </th>
@@ -76,32 +50,35 @@ export function HelmReleasesTab({
               {rows.map((row, i) => (
                 <tr
                   key={`${row.namespace}-${row.name}-${i}`}
-                  style={{
-                    borderBottom: "1px solid #060c14",
-                    transition: "background 0.07s",
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "#0a1420"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                  className={cn(
+                    "border-b border-[#060c14]",
+                    "hover:bg-[#0a1420] transition-colors duration-[70ms]"
+                  )}
                 >
-                  <td style={{ padding: "7px 13px", whiteSpace: "nowrap", color: "#ccd", fontWeight: 600 }}>
+                  <td className={cn("px-[13px] py-[7px] whitespace-nowrap font-semibold text-[#ccd]")}>
                     {row.name}
                   </td>
-                  <td style={{ padding: "7px 13px", whiteSpace: "nowrap" }}>
-                    <span style={{ color: nsColor(row.namespace), fontSize: "0.71rem" }}>{row.namespace}</span>
+                  <td className={cn("px-[13px] py-[7px] whitespace-nowrap")}>
+                    <span
+                      className="font-mono text-[0.71rem]"
+                      style={{ color: nsColor(row.namespace) }}
+                    >
+                      {row.namespace}
+                    </span>
                   </td>
-                  <td style={{ padding: "7px 13px", whiteSpace: "nowrap", color: "#7a6aaa", fontSize: "0.69rem" }}>
+                  <td className={cn("px-[13px] py-[7px] whitespace-nowrap text-[#7a6aaa] text-[0.69rem]")}>
                     {row.chart}
                   </td>
-                  <td style={{ padding: "7px 13px", whiteSpace: "nowrap", color: "#3a5878" }}>
+                  <td className={cn("px-[13px] py-[7px] whitespace-nowrap text-[#3a5878]")}>
                     {row.version}
                   </td>
-                  <td style={{ padding: "7px 13px", whiteSpace: "nowrap" }}>
+                  <td className={cn("px-[13px] py-[7px] whitespace-nowrap")}>
                     <StatusDot status={row.status} />
                   </td>
-                  <td style={{ padding: "7px 13px", whiteSpace: "nowrap", color: "#3a5878" }}>
+                  <td className={cn("px-[13px] py-[7px] whitespace-nowrap text-[#3a5878]")}>
                     v{row.revision}
                   </td>
-                  <td style={{ padding: "7px 13px", whiteSpace: "nowrap", color: "#3a5878", fontSize: "0.69rem" }}>
+                  <td className={cn("px-[13px] py-[7px] whitespace-nowrap text-[#3a5878] text-[0.69rem]")}>
                     {row.updated ? row.updated.slice(0, 19).replace("T", " ") : "—"}
                   </td>
                 </tr>
@@ -110,13 +87,10 @@ export function HelmReleasesTab({
                 <tr>
                   <td
                     colSpan={7}
-                    style={{
-                      textAlign: "center",
-                      color: "#0e1a26",
-                      padding: "50px",
-                      ...mono,
-                      fontSize: "0.72rem",
-                    }}
+                    className={cn(
+                      "p-12 text-center font-mono text-[0.72rem]",
+                      "text-[#0e1a26]"
+                    )}
                   >
                     No helm releases found{filter ? ` matching "${filter}"` : ""}
                   </td>

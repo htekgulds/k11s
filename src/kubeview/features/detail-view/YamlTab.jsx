@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { applyYaml, k8sInvoke } from "../../api";
 import { exportContent } from "../../api/export";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 import { Spinner } from "../../components/ui/Spinner";
 
 export function YamlTab({ obj, type, clusterId }) {
@@ -87,7 +87,7 @@ export function YamlTab({ obj, type, clusterId }) {
       <span>
         {parts.map((p, j) =>
           p.toLowerCase() === searchText.toLowerCase()
-            ? <span key={j} style={{ background: "#ffd70033", color: "#ffd700", borderRadius: 2 }}>{p}</span>
+            ? <span key={j} className="bg-[#ffd70033] text-[#ffd700] rounded px-[1px]">{p}</span>
             : <span key={j}>{p}</span>
         )}
       </span>
@@ -97,38 +97,24 @@ export function YamlTab({ obj, type, clusterId }) {
   // Syntax color for YAML keys
   const lineColor = (line) => {
     const ind = line.match(/^(\s*)/)?.[1]?.length ?? 0;
-    if (line.trim().startsWith("#")) return "#1e3a52";
-    if (ind === 0 && /\w+:/.test(line)) return "#7dd3fc";
-    if (ind <= 2 && /\w+:/.test(line)) return "#c4b5fd";
-    if (/\w+:/.test(line)) return "#a5f3fc";
-    if (/^(\s*)-/.test(line)) return "#86efac";
-    return "#fde68a";
+    if (line.trim().startsWith("#")) return "text-[#1e3a52]";
+    if (ind === 0 && /\w+:/.test(line)) return "text-[#7dd3fc]";
+    if (ind <= 2 && /\w+:/.test(line)) return "text-[#c4b5fd]";
+    if (/\w+:/.test(line)) return "text-[#a5f3fc]";
+    if (/^(\s*)-/.test(line)) return "text-[#86efac]";
+    return "text-[#fde68a]";
   };
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div className="flex-1 flex flex-col overflow-hidden">
       {/* Toolbar */}
-      <div
-        style={{
-          padding: "5px 13px",
-          borderBottom: "1px solid #0a1018",
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          background: "#050910",
-          flexShrink: 0,
-          flexWrap: "wrap",
-        }}
-      >
-        <span
-          style={{
-            fontSize: "0.59rem",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: "#1e3a52",
-            ...mono,
-          }}
-        >
+      <div className={cn(
+        "flex items-center gap-2 px-[13px] py-[5px] border-b border-[#0a1018]",
+        "bg-[#050910] flex-shrink-0 flex-wrap"
+      )}>
+        <span className={cn(
+          "font-mono text-[0.59rem] uppercase tracking-[0.1em] text-[#1e3a52]"
+        )}>
           {editing ? "editing" : "manifest"}
         </span>
 
@@ -137,32 +123,24 @@ export function YamlTab({ obj, type, clusterId }) {
             <button
               type="button"
               onClick={() => setHideMF((p) => !p)}
-              style={{
-                background: "none",
-                border: "1px solid #0e1f2e",
-                borderRadius: 3,
-                color: hideMF ? "#1e3a52" : "#7dd3fc",
-                cursor: "pointer",
-                padding: "2px 7px",
-                ...mono,
-                fontSize: "0.67rem",
-              }}
+              className={cn(
+                "px-2 py-0.5 rounded border text-[0.67rem] font-mono cursor-pointer",
+                "bg-transparent border-[#0e1f2e]",
+                hideMF ? "text-[#1e3a52]" : "text-[#7dd3fc]",
+                "hover:bg-[#0a1420]"
+              )}
             >
               {hideMF ? "show managed fields" : "hide managed fields"}
             </button>
             <button
               type="button"
               onClick={handleCopy}
-              style={{
-                background: "none",
-                border: "1px solid #0e1f2e",
-                borderRadius: 3,
-                color: copied ? "#39ff8a" : "#4a7a8a",
-                cursor: "pointer",
-                padding: "2px 7px",
-                ...mono,
-                fontSize: "0.67rem",
-              }}
+              className={cn(
+                "px-2 py-0.5 rounded border text-[0.67rem] font-mono cursor-pointer",
+                "bg-transparent border-[#0e1f2e]",
+                copied ? "text-[#39ff8a]" : "text-[#4a7a8a]",
+                "hover:bg-[#0a1420]"
+              )}
             >
               {copied ? "✓ copied" : "📋 copy"}
             </button>
@@ -173,16 +151,11 @@ export function YamlTab({ obj, type, clusterId }) {
                 `${type}_${obj.name}.yaml`,
                 [{ name: "YAML", extensions: ["yaml"] }],
               )}
-              style={{
-                background: "none",
-                border: "1px solid #0e1f2e",
-                borderRadius: 3,
-                color: "#4a7a8a",
-                cursor: "pointer",
-                padding: "2px 7px",
-                ...mono,
-                fontSize: "0.67rem",
-              }}
+              className={cn(
+                "px-2 py-0.5 rounded border text-[0.67rem] font-mono cursor-pointer",
+                "bg-transparent border-[#0e1f2e] text-[#4a7a8a]",
+                "hover:bg-[#0a1420]"
+              )}
               title="Export to file"
             >
               ⬇ export
@@ -194,33 +167,20 @@ export function YamlTab({ obj, type, clusterId }) {
               placeholder="Search YAML…"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              style={{
-                ...mono,
-                fontSize: "0.67rem",
-                background: "#0a1018",
-                border: searchText ? "1px solid #ffd70044" : "1px solid #0e1f2e",
-                color: "#8ab",
-                padding: "2px 7px",
-                borderRadius: 3,
-                outline: "none",
-                width: 130,
-                marginLeft: 4,
-              }}
+              className={cn(
+                "font-mono text-[0.67rem] w-32 px-2 py-0.5 rounded border outline-none",
+                "bg-[#0a1018] text-[#8ab]",
+                searchText ? "border-[#ffd70044]" : "border-[#0e1f2e]"
+              )}
             />
             <button
               type="button"
               onClick={handleEdit}
-              style={{
-                marginLeft: "auto",
-                background: "none",
-                border: "1px solid #0e1f2e",
-                borderRadius: 3,
-                color: "#fb923c",
-                cursor: "pointer",
-                padding: "2px 7px",
-                ...mono,
-                fontSize: "0.67rem",
-              }}
+              className={cn(
+                "ml-auto px-2 py-0.5 rounded border text-[0.67rem] font-mono cursor-pointer",
+                "bg-transparent border-[#0e1f2e] text-[#fb923c]",
+                "hover:bg-[#0a1420]"
+              )}
             >
               ✏️ edit & apply
             </button>
@@ -229,23 +189,17 @@ export function YamlTab({ obj, type, clusterId }) {
 
         {editing && (
           <>
-            <span style={{ fontSize: "0.6rem", color: "#fb923c", ...mono }}>
+            <span className={cn("font-mono text-[0.6rem] text-[#fb923c]")}>
               edit the YAML and apply, or cancel
             </span>
             <button
               type="button"
               onClick={handleCancel}
-              style={{
-                marginLeft: "auto",
-                background: "none",
-                border: "1px solid #3a1a1a",
-                borderRadius: 3,
-                color: "#ff6b6b",
-                cursor: "pointer",
-                padding: "2px 7px",
-                ...mono,
-                fontSize: "0.67rem",
-              }}
+              className={cn(
+                "ml-auto px-2 py-0.5 rounded border text-[0.67rem] font-mono cursor-pointer",
+                "bg-transparent border-[#3a1a1a] text-[#ff6b6b]",
+                "hover:bg-[#1a0a0a]"
+              )}
             >
               cancel
             </button>
@@ -253,16 +207,12 @@ export function YamlTab({ obj, type, clusterId }) {
               type="button"
               onClick={handleApply}
               disabled={applying}
-              style={{
-                background: applying ? "#0a1a0a" : "none",
-                border: "1px solid #1a3a1a",
-                borderRadius: 3,
-                color: applying ? "#1e3a52" : "#39ff8a",
-                cursor: applying ? "not-allowed" : "pointer",
-                padding: "2px 7px",
-                ...mono,
-                fontSize: "0.67rem",
-              }}
+              className={cn(
+                "px-2 py-0.5 rounded border text-[0.67rem] font-mono cursor-pointer",
+                applying
+                  ? "bg-[#0a1a0a] border-[#1a3a1a] text-[#1e3a52] cursor-not-allowed"
+                  : "bg-transparent border-[#1a3a1a] text-[#39ff8a] hover:bg-[#0a1a0a]"
+              )}
             >
               {applying ? "⏳ applying…" : "💾 save & apply"}
             </button>
@@ -272,42 +222,30 @@ export function YamlTab({ obj, type, clusterId }) {
 
       {/* Result banner */}
       {result && (
-        <div
-          style={{
-            padding: "6px 13px",
-            fontSize: "0.72rem",
-            ...mono,
-            background: result.ok ? "#0a1a0a" : "#1a0a0a",
-            borderBottom: "1px solid #0a1018",
-            color: result.ok ? "#39ff8a" : "#ff6b6b",
-            flexShrink: 0,
-          }}
-        >
+        <div className={cn(
+          "px-[13px] py-[6px] font-mono text-[0.72rem] border-b border-[#0a1018] flex-shrink-0",
+          result.ok
+            ? "bg-[#0a1a0a] text-[#39ff8a]"
+            : "bg-[#1a0a0a] text-[#ff6b6b]"
+        )}>
           {result.ok ? "✅ Applied" : "❌ Error"}: {result.message}
         </div>
       )}
 
       {/* Search match counter */}
       {searchText && !editing && (
-        <div
-          style={{
-            padding: "2px 13px",
-            fontSize: "0.62rem",
-            ...mono,
-            color: "#ffd70088",
-            background: "#0a0f18",
-            borderBottom: "1px solid #0a1018",
-            flexShrink: 0,
-          }}
-        >
+        <div className={cn(
+          "px-[13px] py-[2px] font-mono text-[0.62rem] border-b border-[#0a1018] flex-shrink-0",
+          "text-[#ffd70088] bg-[#0a0f18]"
+        )}>
           {lines.filter((l) => l.toLowerCase().includes(searchText.toLowerCase())).length} matches
         </div>
       )}
 
       {/* Body */}
-      <div style={{ flex: 1, overflow: "auto", padding: "10px 13px" }}>
+      <div className="flex-1 overflow-auto p-[10px_13px]">
         {fetching ? (
-          <div style={{ color: "#39ff8a", ...mono, fontSize: "0.72rem", display: "flex", gap: 6 }}>
+          <div className={cn("flex items-center gap-2 font-mono text-[0.72rem]", "text-[#39ff8a]")}>
             <Spinner /> Loading…
           </div>
         ) : editing ? (
@@ -315,34 +253,33 @@ export function YamlTab({ obj, type, clusterId }) {
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
             spellCheck={false}
-            style={{
-              width: "100%",
-              height: "100%",
-              minHeight: 300,
-              background: "#020408",
-              border: "1px solid #0e1f2e",
-              borderRadius: 4,
-              color: "#bcc",
-              ...mono,
-              fontSize: "0.71rem",
-              lineHeight: 1.7,
-              padding: 10,
-              resize: "none",
-              outline: "none",
-            }}
+            className={cn(
+              "w-full h-full min-h-[300px] font-mono text-[0.71rem] leading-[1.7] p-2.5",
+              "bg-[#020408] border border-[#0e1f2e] rounded text-[#bcc]",
+              "resize-none outline-none"
+            )}
           />
         ) : (
-          <pre style={{ margin: 0, ...mono, fontSize: "0.71rem", lineHeight: 1.9, display: "flex" }}>
+          <pre className={cn("m-0 font-mono text-[0.71rem] leading-[1.9] flex")}>
             {/* Line numbers gutter */}
-            <span style={{ userSelect: "none", color: "#0e1a2a", textAlign: "right", paddingRight: 14, minWidth: 36, flexShrink: 0 }}>
+            <span className={cn(
+              "select-none text-right pr-[14px] min-w-[36px] flex-shrink-0",
+              "text-[#0e1a2a]"
+            )}>
               {lines.map((_, i) => (
-                <span key={i} style={{ display: "block" }}>{i + 1}</span>
+                <span key={i} className="block">{i + 1}</span>
               ))}
             </span>
             {/* Code content */}
-            <span style={{ whiteSpace: "pre-wrap" }}>
+            <span className="whitespace-pre-wrap">
               {lines.map((line, i) => (
-                <span key={i} style={{ color: yaml?.error ? "#ff6b6b" : lineColor(line), display: "block" }}>
+                <span
+                  key={i}
+                  className={cn(
+                    "block",
+                    yaml?.error ? "text-[#ff6b6b]" : lineColor(line)
+                  )}
+                >
                   {highlightLine(line, i)}
                 </span>
               ))}

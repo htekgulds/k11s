@@ -1,29 +1,23 @@
 import { getAvailableTabs } from "./detailTabs";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 
 export function DetailTabs({ type, subTab, onGoTab }) {
   const dtabs = getAvailableTabs(type);
 
   return (
-    <div style={{ display: "flex" }}>
+    <div className="flex">
       {dtabs.map((t) => (
         <button
           key={t}
           type="button"
           onClick={() => onGoTab(t)}
-          style={{
-            background: "none",
-            border: "none",
-            borderBottom: subTab === t ? "2px solid #39ff8a" : "2px solid transparent",
-            color: subTab === t ? "#dde" : "#2d4a6a",
-            padding: "5px 13px",
-            cursor: "pointer",
-            ...mono,
-            fontSize: "0.69rem",
-            fontWeight: subTab === t ? 700 : 400,
-            textTransform: "uppercase",
-            letterSpacing: "0.07em",
-          }}
+          className={cn(
+            "px-[13px] py-[5px] font-mono text-[0.69rem] uppercase tracking-[0.07em] cursor-pointer",
+            "border-none bg-transparent border-b-2 transition-colors",
+            subTab === t
+              ? "border-[#39ff8a] text-[#dde] font-bold"
+              : "border-transparent text-[#2d4a6a] font-normal hover:text-[#556] hover:border-[#1a3a4a]"
+          )}
         >
           {t}
         </button>

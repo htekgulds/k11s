@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { k8sInvoke } from "../../api";
 import { exportContent } from "../../api/export";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 import { Spinner } from "../../components/ui/Spinner";
 import { listen } from "@tauri-apps/api/event";
 
@@ -83,9 +83,7 @@ export function LogsTab({ obj, clusterId }) {
   }, [tailing, startTail, stopTail]);
 
   useEffect(() => {
-    return () => {
-      stopTail();
-    };
+    return () => { stopTail(); };
   }, [stopTail]);
 
   useEffect(() => {
@@ -100,46 +98,27 @@ export function LogsTab({ obj, clusterId }) {
   }, [logs, tailing]);
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div
-        style={{
-          padding: "5px 13px",
-          borderBottom: "1px solid #0a1018",
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          background: "#050910",
-          flexShrink: 0,
-          flexWrap: "wrap",
-        }}
-      >
-        <span
-          style={{
-            fontSize: "0.59rem",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: "#1e3a52",
-            ...mono,
-          }}
-        >
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={cn(
+        "px-[13px] py-1 border-b border-[#0a1018] flex items-center gap-2",
+        "bg-[#050910] flex-shrink-0 flex-wrap"
+      )}>
+        <span className={cn(
+          "text-[0.59rem] uppercase tracking-[0.1em] text-[#1e3a52] font-mono"
+        )}>
           stdout · stderr
-          {previous && <span style={{ color: "#f9a8d4", marginLeft: 6 }}>· previous</span>}
-          {multiContainer && container && <span style={{ color: "#39ff8a", marginLeft: 6 }}>· {container}</span>}
+          {previous && <span className="ml-[6px] text-[#f9a8d4]">· previous</span>}
+          {multiContainer && container && <span className="ml-[6px] text-[#39ff8a]">· {container}</span>}
         </span>
 
         {multiContainer && (
           <select
             value={container || ""}
             onChange={(e) => setContainer(e.target.value || null)}
-            style={{
-              background: "#0a1018",
-              border: "1px solid #0e1f2e",
-              borderRadius: 3,
-              color: "#39ff8a",
-              ...mono,
-              fontSize: "0.67rem",
-              padding: "2px 5px",
-            }}
+            className={cn(
+              "px-1 py-[2px] rounded text-[0.67rem] font-mono outline-none",
+              "bg-[#0a1018] border border-[#0e1f2e] text-[#39ff8a]"
+            )}
           >
             <option value="">all containers</option>
             {containers.map((c) => (
@@ -151,17 +130,13 @@ export function LogsTab({ obj, clusterId }) {
         <button
           type="button"
           onClick={() => setPrevious((p) => !p)}
-          style={{
-            marginLeft: (previous || multiContainer) ? undefined : "auto",
-            background: previous ? "#f9a8d420" : "none",
-            border: `1px solid ${previous ? "#f9a8d4" : "#0e1f2e"}`,
-            borderRadius: 3,
-            color: previous ? "#f9a8d4" : "#667",
-            cursor: "pointer",
-            padding: "2px 7px",
-            ...mono,
-            fontSize: "0.67rem",
-          }}
+          className={cn(
+            "px-1.5 py-[2px] rounded text-[0.67rem] font-mono cursor-pointer transition-colors",
+            "border",
+            previous
+              ? "bg-[#f9a8d4]/13 border-[#f9a8d4] text-[#f9a8d4]"
+              : "bg-transparent border-[#0e1f2e] text-[#667] hover:bg-[#0a1420] hover:border-[#1a3a4a] hover:text-[#7dd3fc]"
+          )}
           title="Show logs from previous container instance (--previous)"
         >
           prev
@@ -169,16 +144,13 @@ export function LogsTab({ obj, clusterId }) {
         <button
           type="button"
           onClick={toggleTail}
-          style={{
-            background: tailing ? "#39ff8a20" : "none",
-            border: `1px solid ${tailing ? "#39ff8a" : "#0e1f2e"}`,
-            borderRadius: 3,
-            color: tailing ? "#39ff8a" : "#667",
-            cursor: "pointer",
-            padding: "2px 7px",
-            ...mono,
-            fontSize: "0.67rem",
-          }}
+          className={cn(
+            "px-1.5 py-[2px] rounded text-[0.67rem] font-mono cursor-pointer transition-colors",
+            "border",
+            tailing
+              ? "bg-[#39ff8a]/13 border-[#39ff8a] text-[#39ff8a]"
+              : "bg-transparent border-[#0e1f2e] text-[#667] hover:bg-[#0a1420] hover:border-[#1a3a4a] hover:text-[#7dd3fc]"
+          )}
           title="Stream logs live (tail -f)"
         >
           {tailing ? "● tailing" : "tail"}
@@ -190,16 +162,11 @@ export function LogsTab({ obj, clusterId }) {
             `${obj.name}_logs.txt`,
             [{ name: "Text", extensions: ["txt"] }],
           )}
-          style={{
-            background: "none",
-            border: "1px solid #0e1f2e",
-            borderRadius: 3,
-            color: "#4a7a8a",
-            cursor: "pointer",
-            padding: "2px 7px",
-            ...mono,
-            fontSize: "0.67rem",
-          }}
+          className={cn(
+            "px-1.5 py-[2px] rounded text-[0.67rem] font-mono cursor-pointer",
+            "bg-transparent border border-[#0e1f2e] text-[#4a7a8a]",
+            "hover:bg-[#0a1420] hover:border-[#1a3a4a] hover:text-[#7dd3fc]"
+          )}
           title="Export to file"
         >
           ⬇ export
@@ -207,39 +174,34 @@ export function LogsTab({ obj, clusterId }) {
         <button
           type="button"
           onClick={() => load(true)}
-          style={{
-            background: "none",
-            border: "1px solid #0e1f2e",
-            borderRadius: 3,
-            color: "#39ff8a",
-            cursor: "pointer",
-            padding: "2px 7px",
-            ...mono,
-            fontSize: "0.67rem",
-          }}
+          className={cn(
+            "px-1.5 py-[2px] rounded text-[0.67rem] font-mono cursor-pointer",
+            "bg-transparent border border-[#0e1f2e] text-[#39ff8a]",
+            "hover:bg-[#0a1a0a] hover:border-[#1a3a1a] hover:text-[#5aff9e]"
+          )}
         >
           ↻ refresh
         </button>
       </div>
-      <div ref={scrollRef} style={{ flex: 1, overflow: "auto", padding: "10px 13px" }}>
+      <div ref={scrollRef} className="flex-1 overflow-auto p-[10px_13px]">
         {fetching ? (
-          <div style={{ color: "#39ff8a", ...mono, fontSize: "0.72rem", display: "flex", gap: 6 }}>
+          <div className={cn("flex items-center gap-2", "text-[#39ff8a] font-mono text-[0.72rem]")}>
             <Spinner /> Loading…
           </div>
         ) : (
-          <pre style={{ margin: 0, ...mono, fontSize: "0.71rem", lineHeight: 1.9, whiteSpace: "pre-wrap" }}>
+          <pre className={cn("m-0 font-mono text-[0.71rem] leading-[1.9] whitespace-pre-wrap")}>
             {(logs?.error || logs?.logs || "No logs").split("\n").map((line, i) => {
               const c =
                 line.includes("[ERROR]") || line.includes("[FATAL]") || line.includes("Error")
-                  ? "#ff6b6b"
+                  ? "text-[#ff6b6b]"
                   : line.includes("[WARN]") || line.includes("Warning")
-                    ? "#f5c518"
-                    : "#4a7a8a";
+                  ? "text-[#f5c518]"
+                  : "text-[#4a7a8a]";
               const ts = line.match(/^\S+T[\d:.Z]+/)?.[0];
               return (
-                <span key={i} style={{ display: "block" }}>
-                  {ts && <span style={{ color: "#1e3a52" }}>{ts}</span>}
-                  <span style={{ color: c }}>{ts ? line.slice(ts.length) : line}</span>
+                <span key={i} className="block">
+                  {ts && <span className="text-[#1e3a52]">{ts}</span>}
+                  <span className={c}>{ts ? line.slice(ts.length) : line}</span>
                 </span>
               );
             })}
