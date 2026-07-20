@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Globe } from "lucide-react";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 import { nsColor } from "../../utils/colors";
 
 function computeAllNamespaces(data) {
@@ -20,11 +20,7 @@ function computeAllNamespaces(data) {
   });
 }
 
-export function NamespaceSwitcher({
-  activeNamespace,
-  onNamespaceChange,
-  data,
-}) {
+export function NamespaceSwitcher({ activeNamespace, onNamespaceChange, data }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const ref = useRef(null);
@@ -67,76 +63,47 @@ export function NamespaceSwitcher({
   const display = activeNamespace || "All";
   const nsCount = allNs.length - 1; // exclude "All"
 
+  const displayColor = display === "All" ? "text-[#1e3a52]" : "text-[#7dd3fc]";
+
   return (
-    <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
+    <div ref={ref} className="relative flex-shrink-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 5,
-          background: "none",
-          border: "none",
-          borderRight: "1px solid #080e18",
-          color: display === "All" ? "#1e3a52" : "#7dd3fc",
-          padding: "0 10px",
-          height: "100%",
-          cursor: "pointer",
-          ...mono,
-          fontSize: "0.7rem",
-          whiteSpace: "nowrap",
-          transition: "all 0.08s",
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = "#060c14"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = "none"; }}
+        className={cn(
+          "flex items-center gap-[5px] h-full px-[10px] border-r border-[#080e18]",
+          "cursor-pointer font-mono text-[0.7rem] whitespace-nowrap transition-colors",
+          displayColor,
+          "hover:bg-[#060c14]"
+        )}
         title={`Current namespace: ${display} (${nsCount} total)`}
       >
-        <Globe size={12} style={{ color: "#39ff8a", opacity: 0.7 }} />
-        <span style={{ maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis" }}>
+        <Globe size={12} className="text-[#39ff8a] opacity-70" />
+        <span className="max-w-[100px] overflow-hidden text-ellipsis">
           {display}
         </span>
-        <span style={{ fontSize: "0.55rem", color: "#0e1f2e" }}>▾</span>
+        <span className="text-[0.55rem] text-[#0e1f2e]">▾</span>
       </button>
 
       {open && (
-        <div
-          style={{
-            position: "absolute",
-            top: "100%",
-            left: 0,
-            zIndex: 200,
-            marginTop: 2,
-            background: "#0a1420",
-            border: "1px solid #152238",
-            borderRadius: 5,
-            minWidth: 180,
-            maxHeight: 280,
-            display: "flex",
-            flexDirection: "column",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-          }}
-        >
+        <div className={cn(
+          "absolute top-full left-0 z-[200] mt-1 min-w-[180px] max-h-[280px]",
+          "bg-[#0a1420] border border-[#152238] rounded-lg",
+          "shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex flex-col"
+        )}>
           {/* Filter input */}
-          <div style={{ padding: "6px 8px", borderBottom: "1px solid #0e1f2e" }}>
+          <div className="px-[8px] py-[6px] border-b border-[#0e1f2e]">
             <input
               ref={inputRef}
               type="text"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               placeholder="filter namespaces…"
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                background: "#080e18",
-                border: "1px solid #0e1f2e",
-                borderRadius: 3,
-                color: "#bcc",
-                padding: "4px 8px",
-                ...mono,
-                fontSize: "0.68rem",
-                outline: "none",
-              }}
+              className={cn(
+                "w-full box-border px-[8px] py-[4px] rounded text-[0.68rem] font-mono outline-none",
+                "bg-[#080e18] border border-[#0e1f2e] text-[#bcc]",
+                "focus:border-[#39ff8a]"
+              )}
               onKeyDown={(e) => {
                 if (e.key === "Escape") { setOpen(false); setFilter(""); }
                 if (e.key === "Enter" && filtered.length > 0) { handleSelect(filtered[0]); }
@@ -145,54 +112,45 @@ export function NamespaceSwitcher({
           </div>
 
           {/* Namespace list */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "2px 0" }}>
+          <div className="flex-1 overflow-y-auto py-[2px]">
             {filtered.map((ns) => {
               const isActive = ns === activeNamespace || (ns === "All" && !activeNamespace);
+              const nsCol = ns === "All" ? "text-[#1e3a52]" : `text-[${nsColor(ns)}]`;
               return (
                 <button
                   key={ns}
                   type="button"
                   onClick={() => handleSelect(ns)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    width: "100%",
-                    textAlign: "left",
-                    background: isActive ? "#0e1f2e" : "transparent",
-                    border: "none",
-                    color: ns === "All" ? "#1e3a52" : nsColor(ns),
-                    padding: "5px 12px",
-                    cursor: "pointer",
-                    ...mono,
-                    fontSize: "0.72rem",
-                  }}
-                  onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "#0a1828"; }}
-                  onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
+                  className={cn(
+                    "flex items-center gap-[8px] w-full text-left px-[12px] py-[5px]",
+                    "font-mono text-[0.72rem] cursor-pointer transition-colors",
+                    isActive ? "bg-[#0e1f2e]" : "bg-transparent hover:bg-[#0a1828]",
+                    nsCol
+                  )}
                 >
                   {ns === "All" ? (
-                    <span style={{ color: "#4a7a8a", fontSize: "0.62rem" }}>🌐</span>
+                    <span className="text-[0.62rem] text-[#4a7a8a]">🌐</span>
                   ) : (
-                    <span style={{
-                      display: "inline-block",
-                      width: 6, height: 6,
-                      borderRadius: "50%",
-                      background: nsColor(ns),
-                      flexShrink: 0,
-                      opacity: isActive ? 1 : 0.4,
-                    }} />
+                    <span
+                      className={cn(
+                        "w-[6px] h-[6px] rounded-full flex-shrink-0",
+                        isActive ? "opacity-100" : "opacity-40"
+                      )}
+                      style={{ background: nsColor(ns) }}
+                    />
                   )}
-                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {ns}
-                  </span>
+                  <span className="truncate flex-1">{ns}</span>
                   {isActive && (
-                    <span style={{ color: "#39ff8a", fontSize: "0.62rem" }}>✓</span>
+                    <span className="text-[0.62rem] text-[#39ff8a]">✓</span>
                   )}
                 </button>
               );
             })}
             {filtered.length === 0 && (
-              <div style={{ padding: "16px", textAlign: "center", color: "#1e3a52", ...mono, fontSize: "0.68rem" }}>
+              <div className={cn(
+                "px-[16px] py-[16px] text-center font-mono text-[0.68rem]",
+                "text-[#1e3a52]"
+              )}>
                 No namespaces match "{filter}"
               </div>
             )}

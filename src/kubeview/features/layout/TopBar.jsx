@@ -45,7 +45,7 @@ export function TopBar({
           "font-rajdhani font-bold text-[1rem] tracking-[0.15em] flex items-center gap-1",
           "text-[#39ff8a]"
         )}>
-          <Hexagon size={18} style={{ verticalAlign: "middle" }} /> k11s
+          <Hexagon size={18} className="align-middle" /> k11s
         </span>
       </div>
       <ClusterDropdown
@@ -120,7 +120,7 @@ export function TopBar({
                   "opacity-65",
                   isAct && "opacity-100"
                 )}
-                style={{ background: tabColor }}
+                style={{ backgroundColor: tabColor }}
               />
 
               <span className="overflow-hidden text-ellipsis flex-1">

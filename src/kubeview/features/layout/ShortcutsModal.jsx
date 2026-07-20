@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 import { COMMON_RESOURCES } from "../../constants";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 
 const shortcuts = [
   { key: "?", desc: "Toggle this shortcuts panel" },
@@ -10,83 +10,76 @@ const shortcuts = [
   ...COMMON_RESOURCES.map((r) => ({ key: r.shortcut, desc: `Open ${r.label} list` })),
 ];
 
-const rowStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  padding: "4px 0",
-  fontSize: "0.72rem",
-  ...mono,
-};
-
-const kbdStyle = {
-  background: "#080e18",
-  border: "1px solid #1e3a52",
-  borderRadius: 3,
-  padding: "1px 6px",
-  fontSize: "0.65rem",
-  color: "#bdd",
-  ...mono,
-};
-
 export function ShortcutsModal({ open, onClose }) {
   if (!open) return null;
 
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 10000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(0,0,0,0.6)",
-      }}
+      className={cn(
+        "fixed inset-0 z-[10000] flex items-center justify-center",
+        "bg-black/60"
+      )}
       onClick={onClose}
     >
       <div
-        style={{
-          background: "#0a1420",
-          border: "1px solid #0e1f2e",
-          borderRadius: 8,
-          padding: 20,
-          minWidth: 320,
-          maxWidth: 420,
-          ...mono,
-        }}
+        className={cn(
+          "p-5 rounded-lg min-w-[320px] max-w-[420px] font-mono",
+          "bg-[#0a1420] border border-[#0e1f2e]"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <span style={{ color: "#bdd", fontWeight: 700, fontSize: "0.85rem" }}>
+        <div className="flex items-center justify-between mb-[14px]">
+          <span className="text-[#bdd] font-bold text-[0.85rem]">
             Keyboard Shortcuts
           </span>
           <button
             type="button"
             onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              color: "#4a7a8a",
-              cursor: "pointer",
-              padding: 4,
-              display: "flex",
-            }}
+            className={cn(
+              "p-1 cursor-pointer text-[#4a7a8a] hover:text-[#bdd]",
+              "bg-none border-none flex items-center"
+            )}
           >
             <X size={16} />
           </button>
         </div>
 
-        <div style={{ maxHeight: 300, overflowY: "auto" }}>
+        <div className="max-h-[300px] overflow-y-auto">
           {shortcuts.map((s) => (
-            <div key={s.key} style={rowStyle}>
-              <span style={{ color: "#889" }}>{s.desc}</span>
-              <span style={kbdStyle}>{s.key}</span>
+            <div
+              key={s.key}
+              className="flex justify-between py-1 text-[0.72rem] font-mono"
+            >
+              <span className="text-[#889]">{s.desc}</span>
+              <span className={cn(
+                "px-[6px] py-[1px] rounded text-[0.65rem] font-mono",
+                "bg-[#080e18] border border-[#1e3a52] text-[#bdd]"
+              )}>
+                {s.key}
+              </span>
             </div>
           ))}
         </div>
 
-        <div style={{ color: "#2d4a6a", fontSize: "0.62rem", marginTop: 12, textAlign: "center" }}>
-          Press <span style={kbdStyle}>?</span> or <span style={kbdStyle}>Cmd+/</span> to toggle
+        <div className={cn(
+          "text-center mt-3 font-mono text-[0.62rem]",
+          "text-[#2d4a6a]"
+        )}>
+          Press{" "}
+          <span className={cn(
+            "px-[6px] py-[1px] rounded text-[0.65rem] font-mono",
+            "bg-[#080e18] border border-[#1e3a52] text-[#bdd]"
+          )}>
+            ?
+          </span>{" "}
+          or{" "}
+          <span className={cn(
+            "px-[6px] py-[1px] rounded text-[0.65rem] font-mono",
+            "bg-[#080e18] border border-[#1e3a52] text-[#bdd]"
+          )}>
+            Cmd+/
+          </span>{" "}
+          to toggle
         </div>
       </div>
     </div>
