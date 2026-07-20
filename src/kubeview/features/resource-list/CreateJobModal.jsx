@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { Play, Plus } from "lucide-react";
+import { Play, Plus, X } from "lucide-react";
 import { applyYaml } from "../../api";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 import { Spinner } from "../../components/ui/Spinner";
 
 export function CreateJobModal({ open, onClose, clusterId, namespace }) {
@@ -62,7 +62,7 @@ export function CreateJobModal({ open, onClose, clusterId, namespace }) {
     lines.push(`        image: ${image}`);
     if (command.trim()) {
       const parts = command.trim().split(/\s+/);
-      lines.push(`        command:`);
+      lines.push("        command:");
       for (const p of parts) {
         lines.push(`        - ${p}`);
       }
@@ -87,147 +87,142 @@ export function CreateJobModal({ open, onClose, clusterId, namespace }) {
 
   if (!open) return null;
 
-  const inputStyle = {
-    background: "#080e18",
-    border: "1px solid #0e1f2e",
-    borderRadius: 3,
-    color: "#bcc",
-    padding: "5px 8px",
-    ...mono,
-    fontSize: "0.72rem",
-    outline: "none",
-    width: "100%",
-    boxSizing: "border-box",
-  };
-
-  const labelStyle = {
-    ...mono,
-    fontSize: "0.65rem",
-    color: "#4a7a8a",
-    marginBottom: 3,
-    display: "block",
-  };
-
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.82)",
-        zIndex: 2500,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        animation: "fadeIn 0.13s ease",
-      }}
+      className={cn(
+        "fixed inset-0 z-[2500] flex items-center justify-center",
+        "bg-black/82 animate-[fadeIn_0.13s_ease]"
+      )}
       onClick={handleClose}
     >
       <div
-        style={{
-          background: "#0a0f18",
-          border: "1px solid #0e1f2e",
-          borderRadius: 8,
-          width: "min(560px, 92vw)",
-          maxHeight: "85vh",
-          display: "flex",
-          flexDirection: "column",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.95)",
-          overflow: "hidden",
-        }}
+        className={cn(
+          "w-[min(560px,92vw)] max-h-[85vh] flex flex-col overflow-hidden",
+          "bg-[#0a0f18] border border-[#0e1f2e] rounded-lg",
+          "shadow-[0_24px_64px_rgba(0,0,0,0.95)]"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          style={{
-            padding: "10px 14px",
-            borderBottom: "1px solid #0a1420",
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-            flexShrink: 0,
-          }}
-        >
+        <div className={cn(
+          "px-[14px] py-[10px] border-b border-[#0a1420]",
+          "flex items-center gap-[9px] flex-shrink-0"
+        )}>
           <Play size={14} color="#39ff8a" />
-          <span style={{ fontSize: "0.71rem", color: "#39ff8a", ...mono }}>
+          <span className="text-[0.71rem] text-[#39ff8a] font-mono">
             Create Job
           </span>
           <button
             type="button"
             onClick={handleClose}
-            style={{
-              marginLeft: "auto",
-              background: "none",
-              border: "1px solid #1a1a2e",
-              borderRadius: 3,
-              color: "#4a7a8a",
-              cursor: "pointer",
-              padding: "2px 8px",
-              ...mono,
-              fontSize: "0.67rem",
-            }}
+            className={cn(
+              "ml-auto px-[8px] py-[2px] rounded text-[0.67rem] font-mono cursor-pointer",
+              "bg-transparent border border-[#1a1a2e] text-[#4a7a8a]",
+              "hover:bg-[#0a1420] hover:border-[#1a3a4a] hover:text-[#7dd3fc]"
+            )}
           >
             ✕ close
           </button>
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, overflow: "auto", padding: "12px 14px" }}>
+        <div className="flex-1 overflow-auto p-[12px_14px]">
           {!showPreview ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="flex flex-col gap-[10px]">
               {/* Name */}
               <div>
-                <label style={labelStyle}>Name *</label>
+                <label className={cn(
+                  "block mb-[3px] font-mono text-[0.65rem] text-[#4a7a8a]"
+                )}>
+                  Name *
+                </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="my-job"
-                  style={inputStyle}
+                  className={cn(
+                    "w-full box-border px-[8px] py-[5px] rounded text-[0.72rem] font-mono outline-none",
+                    "bg-[#080e18] border border-[#0e1f2e] text-[#bcc]",
+                    "focus:border-[#39ff8a]"
+                  )}
                 />
               </div>
 
               {/* Image */}
               <div>
-                <label style={labelStyle}>Image *</label>
+                <label className={cn(
+                  "block mb-[3px] font-mono text-[0.65rem] text-[#4a7a8a]"
+                )}>
+                  Image *
+                </label>
                 <input
                   type="text"
                   value={image}
                   onChange={(e) => setImage(e.target.value)}
                   placeholder="busybox:1.36"
-                  style={inputStyle}
+                  className={cn(
+                    "w-full box-border px-[8px] py-[5px] rounded text-[0.72rem] font-mono outline-none",
+                    "bg-[#080e18] border border-[#0e1f2e] text-[#bcc]",
+                    "focus:border-[#39ff8a]"
+                  )}
                 />
               </div>
 
               {/* Command (optional) */}
               <div>
-                <label style={labelStyle}>Command (optional)</label>
+                <label className={cn(
+                  "block mb-[3px] font-mono text-[0.65rem] text-[#4a7a8a]"
+                )}>
+                  Command (optional)
+                </label>
                 <input
                   type="text"
                   value={command}
                   onChange={(e) => setCommand(e.target.value)}
                   placeholder="/bin/sh -c echo hello"
-                  style={inputStyle}
+                  className={cn(
+                    "w-full box-border px-[8px] py-[5px] rounded text-[0.72rem] font-mono outline-none",
+                    "bg-[#080e18] border border-[#0e1f2e] text-[#bcc]",
+                    "focus:border-[#39ff8a]"
+                  )}
                 />
               </div>
 
               {/* Row: backoffLimit + restartPolicy */}
-              <div style={{ display: "flex", gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>Backoff Limit</label>
+              <div className="flex gap-[10px]">
+                <div className="flex-1">
+                  <label className={cn(
+                    "block mb-[3px] font-mono text-[0.65rem] text-[#4a7a8a]"
+                  )}>
+                    Backoff Limit
+                  </label>
                   <input
                     type="number"
                     value={backoffLimit}
                     onChange={(e) => setBackoffLimit(parseInt(e.target.value, 10) || 0)}
                     min={0}
-                    style={inputStyle}
+                    className={cn(
+                      "w-full box-border px-[8px] py-[5px] rounded text-[0.72rem] font-mono outline-none",
+                      "bg-[#080e18] border border-[#0e1f2e] text-[#bcc]",
+                      "focus:border-[#39ff8a]"
+                    )}
                   />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>Restart Policy</label>
+                <div className="flex-1">
+                  <label className={cn(
+                    "block mb-[3px] font-mono text-[0.65rem] text-[#4a7a8a]"
+                  )}>
+                    Restart Policy
+                  </label>
                   <select
                     value={restartPolicy}
                     onChange={(e) => setRestartPolicy(e.target.value)}
-                    style={inputStyle}
+                    className={cn(
+                      "w-full box-border px-[8px] py-[5px] rounded text-[0.72rem] font-mono outline-none",
+                      "bg-[#080e18] border border-[#0e1f2e] text-[#bcc]",
+                      "focus:border-[#39ff8a]"
+                    )}
                   >
                     <option value="Never">Never</option>
                     <option value="OnFailure">OnFailure</option>
@@ -236,62 +231,76 @@ export function CreateJobModal({ open, onClose, clusterId, namespace }) {
               </div>
 
               {/* Row: parallelism + completions */}
-              <div style={{ display: "flex", gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>Parallelism (optional)</label>
+              <div className="flex gap-[10px]">
+                <div className="flex-1">
+                  <label className={cn(
+                    "block mb-[3px] font-mono text-[0.65rem] text-[#4a7a8a]"
+                  )}>
+                    Parallelism (optional)
+                  </label>
                   <input
                     type="number"
                     value={parallelism}
                     onChange={(e) => setParallelism(e.target.value)}
                     placeholder="1"
                     min={1}
-                    style={inputStyle}
+                    className={cn(
+                      "w-full box-border px-[8px] py-[5px] rounded text-[0.72rem] font-mono outline-none",
+                      "bg-[#080e18] border border-[#0e1f2e] text-[#bcc]",
+                      "focus:border-[#39ff8a]"
+                    )}
                   />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>Completions (optional)</label>
+                <div className="flex-1">
+                  <label className={cn(
+                    "block mb-[3px] font-mono text-[0.65rem] text-[#4a7a8a]"
+                  )}>
+                    Completions (optional)
+                  </label>
                   <input
                     type="number"
                     value={completions}
                     onChange={(e) => setCompletions(e.target.value)}
                     placeholder="1"
                     min={1}
-                    style={inputStyle}
+                    className={cn(
+                      "w-full box-border px-[8px] py-[5px] rounded text-[0.72rem] font-mono outline-none",
+                      "bg-[#080e18] border border-[#0e1f2e] text-[#bcc]",
+                      "focus:border-[#39ff8a]"
+                    )}
                   />
                 </div>
               </div>
 
               {/* TTL Seconds After Finished (optional) */}
               <div>
-                <label style={labelStyle}>TTL Seconds After Finished (optional)</label>
+                <label className={cn(
+                  "block mb-[3px] font-mono text-[0.65rem] text-[#4a7a8a]"
+                )}>
+                  TTL Seconds After Finished (optional)
+                </label>
                 <input
                   type="number"
                   value={ttlSecondsAfterFinished}
                   onChange={(e) => setTtlSecondsAfterFinished(e.target.value)}
                   placeholder="300"
                   min={0}
-                  style={inputStyle}
+                  className={cn(
+                    "w-full box-border px-[8px] py-[5px] rounded text-[0.72rem] font-mono outline-none",
+                    "bg-[#080e18] border border-[#0e1f2e] text-[#bcc]",
+                    "focus:border-[#39ff8a]"
+                  )}
                 />
               </div>
             </div>
           ) : (
             /* YAML preview */
             <div>
-              <pre
-                style={{
-                  margin: 0,
-                  ...mono,
-                  fontSize: "0.71rem",
-                  lineHeight: 1.9,
-                  whiteSpace: "pre-wrap",
-                  background: "#020408",
-                  border: "1px solid #0e1f2e",
-                  borderRadius: 4,
-                  padding: 10,
-                  maxHeight: 400,
-                  overflow: "auto",
-                }}
-              >
+              <pre className={cn(
+                "m-0 font-mono text-[0.71rem] leading-[1.9] whitespace-pre-wrap",
+                "bg-[#020408] border border-[#0e1f2e] rounded p-[10px]",
+                "max-h-[400px] overflow-auto"
+              )}>
                 {jobYaml.split("\n").map((line, i) => {
                   const ind = line.match(/^(\s*)/)?.[1]?.length ?? 0;
                   let c = "#4a7a8a";
@@ -302,7 +311,7 @@ export function CreateJobModal({ open, onClose, clusterId, namespace }) {
                   else if (/^(\s*)-/.test(line)) c = "#86efac";
                   else c = "#fde68a";
                   return (
-                    <span key={i} style={{ color: c, display: "block" }}>
+                    <span key={i} className="block" style={{ color: c }}>
                       {line}
                     </span>
                   );
@@ -310,18 +319,12 @@ export function CreateJobModal({ open, onClose, clusterId, namespace }) {
               </pre>
 
               {result && (
-                <div
-                  style={{
-                    marginTop: 10,
-                    padding: "8px 10px",
-                    borderRadius: 4,
-                    ...mono,
-                    fontSize: "0.68rem",
-                    background: result.ok ? "#0a2a10" : "#2a0808",
-                    border: `1px solid ${result.ok ? "#1a5a20" : "#5a1010"}`,
-                    color: result.ok ? "#39ff8a" : "#ff6b6b",
-                  }}
-                >
+                <div className={cn(
+                  "mt-[10px] p-[8px_10px] rounded font-mono text-[0.68rem]",
+                  result.ok
+                    ? "bg-[#0a2a10] border border-[#1a5a20] text-[#39ff8a]"
+                    : "bg-[#2a0808] border border-[#5a1010] text-[#ff6b6b]"
+                )}>
                   {result.ok ? "✅ " : "❌ "}{result.message}
                 </div>
               )}
@@ -330,32 +333,21 @@ export function CreateJobModal({ open, onClose, clusterId, namespace }) {
         </div>
 
         {/* Footer */}
-        <div
-          style={{
-            padding: "10px 14px",
-            borderTop: "1px solid #0a1420",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            flexShrink: 0,
-          }}
-        >
+        <div className={cn(
+          "px-[14px] py-[10px] border-t border-[#0a1420]",
+          "flex items-center gap-[10px] flex-shrink-0"
+        )}>
           {!showPreview ? (
             <>
-              <div style={{ flex: 1 }} />
+              <div className="flex-1" />
               <button
                 type="button"
                 onClick={handleClose}
-                style={{
-                  background: "none",
-                  border: "1px solid #0e1f2e",
-                  borderRadius: 3,
-                  color: "#4a7a8a",
-                  cursor: "pointer",
-                  padding: "4px 12px",
-                  ...mono,
-                  fontSize: "0.67rem",
-                }}
+                className={cn(
+                  "px-[12px] py-[4px] rounded text-[0.67rem] font-mono cursor-pointer",
+                  "bg-transparent border border-[#0e1f2e] text-[#4a7a8a]",
+                  "hover:bg-[#0a1420] hover:border-[#1a3a4a] hover:text-[#7dd3fc]"
+                )}
               >
                 Cancel
               </button>
@@ -363,41 +355,30 @@ export function CreateJobModal({ open, onClose, clusterId, namespace }) {
                 type="button"
                 onClick={() => setShowPreview(true)}
                 disabled={!name || !image}
-                style={{
-                  background: name && image ? "#0a2a10" : "none",
-                  border: `1px solid ${name && image ? "#1a5a20" : "#0e1f2e"}`,
-                  borderRadius: 3,
-                  color: name && image ? "#39ff8a" : "#1e3a52",
-                  cursor: name && image ? "pointer" : "not-allowed",
-                  padding: "4px 14px",
-                  ...mono,
-                  fontSize: "0.7rem",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
+                className={cn(
+                  "px-[14px] py-[4px] rounded text-[0.7rem] font-mono cursor-pointer",
+                  "flex items-center gap-[6px] transition-colors",
+                  name && image
+                    ? "bg-[#0a2a10] border border-[#1a5a20] text-[#39ff8a] hover:bg-[#0e3a14] hover:border-[#2a8a2e]"
+                    : "bg-transparent border border-[#0e1f2e] text-[#1e3a52] cursor-not-allowed"
+                )}
               >
                 <Plus size={14} />
-                Review &amp; Create
+                Review & Create
               </button>
             </>
           ) : (
             <>
               {result && result.ok ? (
-                <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
+                <div className="flex-1 flex justify-end">
                   <button
                     type="button"
                     onClick={handleClose}
-                    style={{
-                      background: "#0a2a10",
-                      border: "1px solid #1a5a20",
-                      borderRadius: 3,
-                      color: "#39ff8a",
-                      cursor: "pointer",
-                      padding: "4px 14px",
-                      ...mono,
-                      fontSize: "0.7rem",
-                    }}
+                    className={cn(
+                      "px-[14px] py-[4px] rounded text-[0.7rem] font-mono cursor-pointer",
+                      "bg-[#0a2a10] border border-[#1a5a20] text-[#39ff8a]",
+                      "hover:bg-[#0e3a14] hover:border-[#2a8a2e]"
+                    )}
                   >
                     Done
                   </button>
@@ -408,37 +389,27 @@ export function CreateJobModal({ open, onClose, clusterId, namespace }) {
                     type="button"
                     onClick={() => setShowPreview(false)}
                     disabled={applying}
-                    style={{
-                      background: "none",
-                      border: "1px solid #0e1f2e",
-                      borderRadius: 3,
-                      color: applying ? "#1e3a52" : "#4a7a8a",
-                      cursor: applying ? "not-allowed" : "pointer",
-                      padding: "4px 12px",
-                      ...mono,
-                      fontSize: "0.67rem",
-                    }}
+                    className={cn(
+                      "px-[12px] py-[4px] rounded text-[0.67rem] font-mono cursor-pointer",
+                      "bg-transparent border border-[#0e1f2e] text-[#4a7a8a]",
+                      "hover:bg-[#0a1420] hover:border-[#1a3a4a] hover:text-[#7dd3fc]",
+                      applying && "cursor-not-allowed opacity-50"
+                    )}
                   >
                     ← Back
                   </button>
-                  <div style={{ flex: 1 }} />
+                  <div className="flex-1" />
                   <button
                     type="button"
                     onClick={handleApply}
                     disabled={applying || !jobYaml}
-                    style={{
-                      background: applying ? "#0a1a0a" : "none",
-                      border: "1px solid #1a3a1a",
-                      borderRadius: 3,
-                      color: applying ? "#1e3a52" : "#39ff8a",
-                      cursor: applying ? "not-allowed" : "pointer",
-                      padding: "4px 14px",
-                      ...mono,
-                      fontSize: "0.7rem",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
+                    className={cn(
+                      "px-[14px] py-[4px] rounded text-[0.7rem] font-mono cursor-pointer",
+                      "flex items-center gap-[6px] border border-[#1a3a1a]",
+                      applying
+                        ? "bg-[#0a1a0a] text-[#1e3a52] cursor-not-allowed"
+                        : "bg-transparent text-[#39ff8a] hover:bg-[#0a1a0a] hover:border-[#39ff8a]"
+                    )}
                   >
                     {applying && <Spinner />}
                     {applying ? "applying…" : "▶ Apply"}
