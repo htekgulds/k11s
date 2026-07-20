@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Command } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 
 export function CommandPalette({ open, query, setQuery, items, onClose, inputRef, stale }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -35,40 +35,22 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
 
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.82)",
-        zIndex: 2000,
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        paddingTop: "13vh",
-      }}
+      className={cn(
+        "fixed inset-0 z-[2000] flex items-start justify-center pt-[13vh]",
+        "bg-black/82 animate-[fadeIn_0.13s_ease]"
+      )}
       onClick={onClose}
     >
       <div
-        style={{
-          background: "#0a0f18",
-          border: "1px solid #0e1f2e",
-          borderRadius: 8,
-          width: "min(520px, 90vw)",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.95)",
-          animation: "fadeIn 0.13s ease",
-          overflow: "hidden",
-        }}
+        className={cn(
+          "w-[min(520px,90vw)] rounded-lg overflow-hidden",
+          "bg-[#0a0f18] border border-[#0e1f2e]",
+          "shadow-[0_24px_64px_rgba(0,0,0,0.95)] animate-[fadeIn_0.13s_ease]"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          style={{
-            padding: "10px 14px",
-            borderBottom: "1px solid #0a1420",
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-          }}
-        >
-          <Command size={16} style={{ color: "#39ff8a" }} />
+        <div className="flex items-center gap-[9px] px-[14px] py-[10px] border-b border-[#0a1420]">
+          <Command size={16} className="text-[#39ff8a] flex-shrink-0" />
           <input
             ref={inputRef}
             value={query}
@@ -77,77 +59,56 @@ export function CommandPalette({ open, query, setQuery, items, onClose, inputRef
               setSelectedIndex(0);
             }}
             placeholder="Search resources, open resource view, switch cluster…"
-            style={{
-              flex: 1,
-              background: "none",
-              border: "none",
-              outline: "none",
-              color: "#dde",
-              ...mono,
-              fontSize: "0.82rem",
-            }}
+            className={cn(
+              "flex-1 bg-none border-none outline-none font-mono text-[0.82rem] text-[#dde]",
+              "placeholder:text-[#4a7a8a]"
+            )}
           />
-          {stale && <span style={{ color: "#ffd70066", fontSize: "0.62rem", ...mono }}>⌛</span>}
-          <span style={{ color: "#0e1f2e", fontSize: "0.67rem" }}>ESC</span>
+          {stale && <span className="text-[0.62rem] font-mono text-[#ffd70066]">⌛</span>}
+          <span className="text-[0.67rem] text-[#0e1f2e] font-mono">ESC</span>
         </div>
-        <div ref={listRef} style={{ maxHeight: 320, overflowY: "auto" }}>
+        <div ref={listRef} className="max-h-[320px] overflow-y-auto">
           {items.map((item, i) => {
             if (item.separator) {
               return (
                 <div
                   key={`sep-${i}`}
-                  style={{
-                    height: 1,
-                    background: "#0e1f2e",
-                    margin: "4px 14px",
-                  }}
+                  className="h-px bg-[#0e1f2e] mx-[14px] my-1"
                 />
               );
             }
             const idx = renderIdx++;
             const leftColor = item.clusterColor || null;
+            const isSelected = selectedIndex === idx;
+
             return (
               <button
                 key={i}
                 type="button"
                 onClick={() => runItem(item)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  width: "100%",
-                  background: selectedIndex === idx ? "#0a1420" : "none",
-                  border: "none",
-                  textAlign: "left",
-                  padding: "9px 14px",
-                  color: selectedIndex === idx ? "#c8d6e5" : "#4a7a8a",
-                  ...mono,
-                  fontSize: "0.75rem",
-                  cursor: "pointer",
-                  borderBottom: "1px solid #080e18",
-                }}
-                onMouseEnter={(e) => {
-                  setSelectedIndex(idx);
-                  e.currentTarget.style.background = "#0a1420";
-                }}
-                onMouseLeave={(e) => {
-                  if (selectedIndex !== idx) e.currentTarget.style.background = "none";
-                }}
+                onMouseEnter={() => setSelectedIndex(idx)}
+                className={cn(
+                  "flex items-center gap-2 w-full text-left px-[14px] py-[9px] font-mono text-[0.75rem] cursor-pointer",
+                  "border-b border-[#080e18] transition-colors",
+                  isSelected
+                    ? "bg-[#0a1420] text-[#c8d6e5]"
+                    : "bg-transparent text-[#4a7a8a] hover:bg-[#0a1420] hover:text-[#c8d6e5]"
+                )}
               >
                 {leftColor && (
-                  <span style={{
-                    width: 6, height: 6, borderRadius: "50%",
-                    background: leftColor, flexShrink: 0,
-                  }} />
+                  <span
+                    className="w-[6px] h-[6px] rounded-full flex-shrink-0"
+                    style={{ background: leftColor }}
+                  />
                 )}
-                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span className="truncate flex-1 min-w-0 overflow-hidden">
                   {item.label}
                 </span>
               </button>
             );
           })}
           {!items.length && (
-            <div style={{ padding: "18px 14px", color: "#0e1f2e", ...mono, fontSize: "0.72rem" }}>
+            <div className="px-[14px] py-[18px] font-mono text-[0.72rem] text-[#0e1f2e]">
               No match
             </div>
           )}

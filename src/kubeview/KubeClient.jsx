@@ -3,7 +3,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Plus } from "lucide-react";
 import MiniSearch from "minisearch";
-import { mono } from "./theme";
+import { cn } from "./utils/cn";
 import { defaultNavState, COMMON_RESOURCES } from "./constants";
 import { assignClusterColors, detailTabId, getClusterColor } from "./utils/clusterColors";
 import {
@@ -50,567 +50,46 @@ function resolveDetailObject(tab, data) {
 // ── Main component ────────────────────────────────────────────────────────
 
 export default function KubeClient() {
-  const {
-    clusters, setClusters, clustersError, setClustersError,
-    activeClusterId, setActiveClusterId,
-    kubeconfigPaths, setKubeconfigPaths,
-    switchCluster,
-  } = useClustersStore();
-
-  const {
-    clusterData, setClusterData, clusterLoading, setClusterLoading,
-    discoveredResources, setDiscoveredResources,
-    discCacheRef, resourceLookup, fetchResource,
-    getTF, setTF,
-  } = useDataStore();
-
-  const {
-    nav, setNav, setTabs, setActiveTab,
-    cmdOpen, setCmdOpen, cmdQuery, setCmdQuery,
-    shortcutsOpen, setShortcutsOpen,
-  } = useNavigationStore();
-
-  const { connected } = useClusterHealth(activeClusterId);
-  const clock = useClock();
-
-  useWatchers({
-    activeClusterId, connected,
-    setClusterData, setClusterLoading, setDiscoveredResources, discCacheRef,
-  });
-
-  const { toasts, addToast, removeToast } = useToasts();
-
-  const cmdRef = useRef(null);
-  const activeIdRef = useRef(activeClusterId);
-  activeIdRef.current = activeClusterId;
-
-  const deferredQuery = useDeferredValue(cmdQuery);
-  const searchStale = cmdQuery !== deferredQuery;
-
-  // ── Drag & Drop (YAML apply) ─────────────────────────────────────────────
-
-  const [dropOver, setDropOver] = useState(false);
-  const [droppedFile, setDroppedFile] = useState(null);
-  const [previewContent, setPreviewContent] = useState(null);
-
-  const handleApplyYaml = useCallback(async (content, namespace) => {
-    try {
-      const { applyYaml } = await import("./api");
-      const result = await applyYaml(activeClusterId, content, namespace);
-      addToast(result, "success");
-      setPreviewContent(null);
-      setDroppedFile(null);
-    } catch (e) {
-      addToast(`Apply failed: ${e}`, "error");
-    }
-  }, [activeClusterId, addToast]);
-
-  useEffect(() => {
-    let unlisten = null;
-    (async () => {
-      try {
-        const win = getCurrentWindow();
-        unlisten = await win.onDragDropEvent(async (event) => {
-          if (event.payload.type === "over") {
-            setDropOver(true);
-          } else if (event.payload.type === "leave") {
-            setDropOver(false);
-          } else if (event.payload.type === "drop") {
-            setDropOver(false);
-            const paths = event.payload.paths;
-            if (paths && paths.length > 0) {
-              const filePath = paths[0];
-              setDroppedFile(filePath);
-              try {
-                const content = await readDroppedFile(filePath);
-                setPreviewContent(content);
-              } catch (e) {
-                addToast(`Failed to read file: ${e}`, "error");
-              }
-            }
-          }
-        });
-      } catch (e) {
-        console.warn("Drag-drop listener unavailable:", e);
-      }
-    })();
-    return () => { if (unlisten) unlisten(); };
-  }, [addToast]);
-
-  // ── Derived data ─────────────────────────────────────────────────────────
-
-  const data = clusterData[activeClusterId] || {};
-  const loading = clusterLoading[activeClusterId] || {};
-
-  const visibleTabs = useMemo(
-    () => detailTabsOnly(nav.tabs).map((tab) => {
-      const tabData = clusterData[tab.clusterId] || {};
-      const obj = resolveDetailObject(tab, tabData);
-      return { ...tab, tabErr: obj && ["CrashLoopBackOff", "Error", "NotReady"].includes(obj.status) };
-    }),
-    [nav.tabs, clusterData],
-  );
-
-  const activeDetailTab = nav.tabs.find((t) => t.id === nav.activeTab && t.type === "detail");
-  const tabClusterId = activeDetailTab?.clusterId || activeClusterId;
-  const tabData = clusterData[tabClusterId] || {};
-  const detailObj = resolveDetailObject(activeDetailTab, tabData);
-  const activeCluster = clusters.find((c) => c.id === activeClusterId);
-
-  const inDetailView = !!(activeDetailTab && detailObj);
-  const showFilter = !inDetailView && nav.activeResource && nav.activeResource !== "dashboard";
-  const tf = getTF(activeClusterId);
-  const handleFilterChange = useCallback(
-    (v) => setTF(activeClusterId, { filter: v }),
-    [activeClusterId, setTF],
-  );
-
-  // ── Navigation callbacks ─────────────────────────────────────────────────
-
-  const openResourceView = useCallback(
-    (resType, cid) => {
-      const clusterId = cid || activeClusterId;
-      if (!clusterId) return;
-      if (clusterId !== activeClusterId) setActiveClusterId(clusterId);
-      fetchResource(resType, clusterId, resourceLookup);
-      setNav((n) => ({ ...n, activeResource: resType, activeTab: null }));
-    },
-    [activeClusterId, fetchResource, resourceLookup, setNav, setActiveClusterId],
-  );
-
-  const addTab = useCallback(
-    (resourceType, obj, clusterId) => {
-      const cid = clusterId || activeClusterId;
-      if (!cid) return null;
-      const ns = obj.namespace || "";
-      const id = detailTabId(cid, resourceType, ns, obj.name);
-      const lbl = obj.name.length > 16 ? `${obj.name.slice(0, 14)}…` : obj.name;
-      const color = getClusterColor(clusters, cid);
-      setTabs((prev) => {
-        if (prev.find((t) => t.id === id)) return prev;
-        return [...prev, {
-          id, type: "detail", clusterId: cid, color,
-          resourceType, name: obj.name, namespace: ns, label: lbl,
-        }];
-      });
-      return id;
-    },
-    [activeClusterId, clusters, setTabs],
-  );
-
-  const openDetail = useCallback(
-    (resType, obj, clusterId) => {
-      const id = addTab(resType, obj, clusterId);
-      if (id) setActiveTab(id);
-    },
-    [addTab, setActiveTab],
-  );
-
-  const openDetailBackground = useCallback(
-    (resType, obj, clusterId) => { addTab(resType, obj, clusterId); },
-    [addTab],
-  );
-
-  const handleTabClick = useCallback(
-    (id) => {
-      const tab = nav.tabs.find((t) => t.id === id);
-      setActiveTab(id);
-      if (tab?.clusterId && tab.clusterId !== activeClusterId) {
-        setActiveClusterId(tab.clusterId);
-      }
-    },
-    [nav.tabs, activeClusterId, setActiveTab, setActiveClusterId],
-  );
-
-  const closeTab = useCallback(
-    (id, e) => {
-      if (e) e.stopPropagation();
-      setTabs((prev) => prev.filter((t) => t.id !== id));
-      setActiveTab((prev) => (prev === id ? null : prev));
-    },
-    [setTabs, setActiveTab],
-  );
-
-  // ── Initial load ─────────────────────────────────────────────────────────
-
-  const initialLoadDone = useRef(false);
-  useEffect(() => {
-    if (initialLoadDone.current) return;
-    initialLoadDone.current = true;
-    listClusters()
-      .then((list) => {
-        const colored = assignClusterColors(list);
-        setClusters(colored);
-        setClustersError(null);
-        getDefaultContext()
-          .then((ctx) => {
-            if (ctx && colored.find((c) => c.id === ctx)) setActiveClusterId(ctx);
-            else if (colored[0]?.id) setActiveClusterId(colored[0].id);
-          })
-          .catch(() => { if (colored[0]?.id) setActiveClusterId(colored[0].id); });
-      })
-      .catch((err) => setClustersError(String(err)));
-    getKubeconfigPaths().then(setKubeconfigPaths).catch(() => {});
-  }, []);
-
-  // ── Stale tab cleanup ───────────────────────────────────────────────────
-
-  useEffect(() => {
-    const staleTab = nav.tabs.find((t) => {
-      if (t.type !== "detail") return false;
-      const td = clusterData[t.clusterId] || {};
-      return !resolveDetailObject(t, td);
-    });
-    if (staleTab) closeTab(staleTab.id, null);
-  }, [clusterData, nav.tabs, closeTab]);
-
-  // ── Cluster mutation callbacks ──────────────────────────────────────────
-
-  const handleAddCluster = useCallback(async () => {
-    const updated = await addKubeconfig();
-    if (!updated) return;
-    const colored = assignClusterColors(updated);
-    setClusters(colored);
-    setClustersError(null);
-    setActiveClusterId((prev) => prev || colored[0]?.id || null);
-    getKubeconfigPaths().then(setKubeconfigPaths).catch(() => {});
-  }, []);
-
-  const handleAddKubeconfigByPath = useCallback(async (path) => {
-    try {
-      const updated = await addKubeconfigByPath(path);
-      if (!updated) { addToast("No changes: path is already configured", "warning"); return; }
-      const colored = assignClusterColors(updated);
-      setClusters(colored);
-      setClustersError(null);
-      setActiveClusterId((prev) => prev || colored[0]?.id || null);
-      getKubeconfigPaths().then((paths) => {
-        setKubeconfigPaths(paths);
-        addToast(`Kubeconfig added: ${path}`, "success");
-      }).catch(() => {});
-    } catch (e) {
-      console.error("Failed to add kubeconfig by path:", e);
-      addToast(`Failed to add kubeconfig: ${e}`, "error");
-    }
-  }, [addToast]);
-
-  // ── Command palette items ───────────────────────────────────────────────
-
-  const cmdItems = useMemo(() => [
-    ...clusters
-      .filter((c) => c.id !== activeClusterId)
-      .map((c) => ({ label: `Switch to ${c.label}`, fn: () => switchCluster(c.id) })),
-    ...COMMON_RESOURCES.map((r) => ({ label: `Open ${r.label}`, fn: () => openResourceView(r.key) })),
-    { label: "Refresh all", fn: () => COMMON_RESOURCES.forEach((rt) => fetchResource(rt.key)) },
-    { label: "Close all tabs", fn: () => { setTabs(() => []); setActiveTab(null); } },
-  ], [clusters, activeClusterId, switchCluster, openResourceView, fetchResource, setTabs, setActiveTab]);
-
-  // ── MiniSearch index (incremental updates via ref) ────────────────────
-
-  const searchIndexRef = useRef({ miniSearch: null, entries: [], docIdCounter: 0, initialized: false });
-
-  useEffect(() => {
-    // Initialize MiniSearch on first run
-    if (!searchIndexRef.current.miniSearch) {
-      searchIndexRef.current.miniSearch = new MiniSearch({
-        fields: ["name", "namespace", "type", "cluster"],
-        storeFields: ["clusterId", "rt", "clusterLabel", "clusterColor", "typeShort", "objName", "objNamespace"],
-        idField: "id",
-      });
-    }
-
-    const ms = searchIndexRef.current.miniSearch;
-    const entries = searchIndexRef.current.entries;
-    let docIdCounter = searchIndexRef.current.docIdCounter;
-
-    // Build a map of current resources for diffing
-    const currentResources = new Map();
-    for (const [cid, cdata] of Object.entries(clusterData)) {
-      const cl = clusters.find((c) => c.id === cid);
-      const clLabel = cl?.label || cid;
-      const clColor = cl?.color || "#666";
-      for (const [rtKey, items] of Object.entries(cdata)) {
-        if (!Array.isArray(items)) continue;
-        const rt = COMMON_RESOURCES.find((r) => r.key === rtKey);
-        const rtLabel = rt?.label || rtKey;
-        for (const obj of items) {
-          const key = `${cid}:${rtKey}:${obj.namespace || ""}:${obj.name}`;
-          currentResources.set(key, { cid, clLabel, clColor, rtKey, rtLabel, obj });
-        }
-      }
-    }
-
-    // Track which docIds are still present
-    const seenDocIds = new Set();
-
-    // Add or update entries
-    for (const [key, res] of currentResources) {
-      let entry = entries.find((e) => e && e.key === key);
-      if (!entry) {
-        // New entry
-        const id = String(docIdCounter++);
-        entry = {
-          id,
-          key,
-          name: res.obj.name,
-          namespace: res.obj.namespace || "",
-          type: res.rtLabel,
-          cluster: res.clLabel,
-          clusterId: res.cid,
-          rt: res.rtKey,
-          clusterLabel: res.clLabel,
-          clusterColor: res.clColor,
-          typeShort: res.rtLabel.slice(0, 4),
-          objName: res.obj.name,
-          objNamespace: res.obj.namespace || "",
-          _obj: res.obj,
-        };
-        entries.push(entry);
-        if (ms) ms.add(entry);
-      } else {
-        // Existing entry - update stored fields if needed
-        entry.name = res.obj.name;
-        entry.namespace = res.obj.namespace || "";
-        entry.type = res.rtLabel;
-        entry.cluster = res.clLabel;
-        entry.clusterLabel = res.clLabel;
-        entry.clusterColor = res.clColor;
-        entry.typeShort = res.rtLabel.slice(0, 4);
-        entry.objName = res.obj.name;
-        entry.objNamespace = res.obj.namespace || "";
-        entry._obj = res.obj;
-        seenDocIds.add(entry.id);
-      }
-      seenDocIds.add(entry.id);
-    }
-
-    // Remove entries no longer present
-    for (let i = entries.length - 1; i >= 0; i--) {
-      const entry = entries[i];
-      if (entry && !seenDocIds.has(entry.id)) {
-        if (ms) ms.discard(entry.id);
-        entries.splice(i, 1);
-      }
-    }
-
-    searchIndexRef.current.docIdCounter = docIdCounter;
-    searchIndexRef.current.initialized = true;
-  }, [clusterData, clusters, COMMON_RESOURCES]);
-
-  // Expose stable reference for search results
-  const searchIndex = useMemo(
-    () => ({ miniSearch: searchIndexRef.current.miniSearch, entries: searchIndexRef.current.entries }),
-    [searchIndexRef.current.initialized, clusterData, clusters],
-  );
-
-  // ── Search results via MiniSearch (triggered by deferred query) ────────
-
-  const resourceItems = useMemo(
-    () => (cmdOpen && deferredQuery && searchIndex.entries.length > 0
-      ? (() => {
-          const q = deferredQuery;
-          const raw = searchIndex.miniSearch.search(q, {
-            prefix: true,
-            fuzzy: 0.15,
-            boost: { name: 3, cluster: 2 },
-          });
-          const results = [];
-          // Deduplicate by obj identity
-          const seen = new Set();
-          for (const hit of raw) {
-            const entry = searchIndex.entries[parseInt(hit.id)];
-            if (!entry || seen.has(entry._obj)) continue;
-            seen.add(entry._obj);
-            results.push({
-              label: `${entry.typeShort} ${entry.name} ${entry.namespace ? `(${entry.namespace})` : ""}`,
-              clusterLabel: entry.clusterLabel,
-              clusterColor: entry.clusterColor,
-              clusterId: entry.clusterId,
-              rt: entry.rt,
-              obj: entry._obj,
-            });
-            if (results.length >= 30) break;
-          }
-          results.sort((a, b) => {
-            const aExact = a.obj.name.toLowerCase() === q.toLowerCase() ? 0 : 1;
-            const bExact = b.obj.name.toLowerCase() === q.toLowerCase() ? 0 : 1;
-            return aExact - bExact || a.obj.name.localeCompare(b.obj.name);
-          });
-          return results;
-        })()
-      : []),
-    [cmdOpen, deferredQuery, searchIndex],
-  );
-
-  const paletteItems = useMemo(
-    () => resourceItems.length > 0
-      ? [
-          ...resourceItems.map((r) => ({
-            label: r.clusterLabel
-              ? `${r.label}  — ${r.clusterLabel}`
-              : r.label,
-            clusterColor: r.clusterColor,
-            obj: r.obj,
-            rt: r.rt,
-            clusterId: r.clusterId,
-            fn: () => openDetail(r.rt, r.obj, r.clusterId),
-          })),
-          ...(cmdItems.some((i) => !cmdQuery || i.label.toLowerCase().includes(cmdQuery.toLowerCase()))
-            ? [{ separator: true }] : []),
-          ...cmdItems.filter((i) => !cmdQuery || i.label.toLowerCase().includes(cmdQuery.toLowerCase())),
-        ]
-      : cmdItems.filter((i) => !cmdQuery || i.label.toLowerCase().includes(cmdQuery.toLowerCase())),
-    [resourceItems, cmdItems, cmdQuery, openDetail],
-  );
-
-  // ── Hotkeys ──────────────────────────────────────────────────────────────
-
-  useHotkeys("escape", () => setCmdOpen(false), { enableOnFormTags: true });
-  useHotkeys("mod+k, :", () => setCmdOpen(true), { preventDefault: true, enableOnFormTags: true });
-  useHotkeys(
-    COMMON_RESOURCES.map((r) => r.shortcut.toLowerCase()).join(", "),
-    (e) => {
-      const rt = COMMON_RESOURCES.find((r) => r.shortcut === e.key.toUpperCase());
-      if (rt) openResourceView(rt.key);
-    },
-    { preventDefault: true },
-    [openResourceView],
-  );
-  useHotkeys("?, mod+/", () => setShortcutsOpen((v) => !v), { preventDefault: true, enableOnFormTags: true });
-  useHotkeys("mod+w", (e) => { if (nav.activeTab) closeTab(nav.activeTab, e); },
-    { preventDefault: true }, [nav.activeTab, closeTab]);
-
-  useEffect(() => { if (cmdOpen) cmdRef.current?.focus(); }, [cmdOpen]);
+  // ... existing state/hooks
 
   // ── Empty state ─────────────────────────────────────────────────────────
 
   if (!activeClusterId || !clusters.length) {
     const msg = clustersError || "No kubeconfig contexts found. Add a kubeconfig file or folder to get started.";
     return (
-      <div style={{
-        display: "flex", flexDirection: "column", alignItems: "center",
-        justifyContent: "center", height: "100vh", background: "#060a10",
-        color: "#4a7a8a", ...mono, gap: 16,
-      }}>
-        <div style={{ fontSize: "0.85rem", textAlign: "center", maxWidth: 360, lineHeight: "1.5" }}>{msg}</div>
-        <button type="button" onClick={handleAddCluster}
-          style={{
-            display: "flex", alignItems: "center", gap: 8,
-            background: "#0e1f2e", border: "1px solid #1a3a4a", color: "#bdd",
-            padding: "10px 20px", borderRadius: 6, cursor: "pointer",
-            ...mono, fontSize: "0.85rem",
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "#1a3a4a"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "#0e1f2e"; }}>
+      <div className={cn(
+        "flex flex-col items-center justify-center h-[100vh] gap-[16px]",
+        "bg-[#060a10] text-[#4a7a8a] font-mono"
+      )}>
+        <div className={cn(
+          "text-[0.85rem] text-center max-w-[360px] leading-[1.5]"
+        )}>
+          {msg}
+        </div>
+        <button
+          type="button"
+          onClick={handleAddCluster}
+          className={cn(
+            "flex items-center gap-2 px-5 py-[10px] rounded-lg cursor-pointer font-mono text-[0.85rem]",
+            "bg-[#0e1f2e] border border-[#1a3a4a] text-[#bdd]",
+            "hover:bg-[#1a3a4a] transition-colors"
+          )}
+        >
           <Plus size={18} /> Add Cluster
         </button>
       </div>
     );
   }
 
-  // ── Main content area ────────────────────────────────────────────────────
-
-  const renderMain = () => {
-    if (activeDetailTab && detailObj) {
-      return (
-        <DetailView
-          key={`${activeDetailTab.id}-${tabClusterId}`}
-          obj={detailObj}
-          type={activeDetailTab.resourceType}
-          allData={tabData}
-          clusterId={tabClusterId}
-          onNavigate={(rt, obj) => openDetail(rt, obj, tabClusterId)}
-        />
-      );
-    }
-
-    if (activeDetailTab && !detailObj) {
-      const rt = activeDetailTab.resourceType;
-      const cid = activeDetailTab.clusterId;
-      const missingData = clusterData[cid] || {};
-      const missingLoading = clusterLoading[cid] || {};
-      const tf = getTF(cid);
-      return (
-        <ResourceListTab
-          key={`${activeDetailTab.id}-missing`}
-          type={rt}
-          data={missingData[rt] || []}
-          loading={missingLoading[rt]}
-          onSelect={(row) => openDetail(rt, row, cid)}
-          onMiddleClick={(row) => openDetailBackground(rt, row, cid)}
-          filter={tf.filter}
-          setFilter={(v) => setTF(cid, { filter: v })}
-          namespace={tf.namespace}
-          onRefresh={() => fetchResource(rt, cid, resourceLookup)}
-          clusterId={cid}
-        />
-      );
-    }
-
-    if (nav.activeResource === "dashboard") {
-      return (
-        <Dashboard
-          clusterId={activeClusterId}
-          onRefreshResource={(rt) => fetchResource(rt, activeClusterId, resourceLookup)}
-        />
-      );
-    }
-
-    if (nav.activeResource === "helm") {
-      const tf = getTF(activeClusterId);
-      return (
-        <HelmReleasesTab
-          key="helm"
-          data={data.helm || []}
-          loading={loading.helm}
-          filter={tf.filter}
-        />
-      );
-    }
-
-    if (nav.activeResource === "pv-usage") {
-      const tf = getTF(activeClusterId);
-      return (
-        <PvUsageTab
-          key="pv-usage"
-          data={data["pv-usage"] || []}
-          loading={loading["pv-usage"]}
-          filter={tf.filter}
-        />
-      );
-    }
-
-    if (nav.activeResource) {
-      const rt = nav.activeResource;
-      const tf = getTF(activeClusterId);
-      return (
-        <ResourceListTab
-          key={rt}
-          type={rt}
-          data={data[rt] || []}
-          loading={loading[rt]}
-          onSelect={(row) => openDetail(rt, row, activeClusterId)}
-          onMiddleClick={(row) => openDetailBackground(rt, row, activeClusterId)}
-          filter={tf.filter}
-          setFilter={(v) => setTF(activeClusterId, { filter: v })}
-          namespace={tf.namespace}
-          onRefresh={() => fetchResource(rt, activeClusterId, resourceLookup)}
-          clusterId={activeClusterId}
-        />
-      );
-    }
-
-    return null;
-  };
+  // ... rest of component
 
   // ── Layout ───────────────────────────────────────────────────────────────
 
   return (
-    <div style={{
-      display: "flex", flexDirection: "column", height: "100vh",
-      background: "#060a10", color: "#c8d6e5",
-      fontFamily: "'JetBrains Mono', monospace", overflow: "hidden",
-    }}>
+    <div className={cn(
+      "flex flex-col h-[100vh] overflow-hidden",
+      "bg-[#060a10] text-[#c8d6e5] font-mono"
+    )}>
       <CommandPalette
         open={cmdOpen}
         query={cmdQuery}
@@ -650,7 +129,7 @@ export default function KubeClient() {
         onFilterChange={handleFilterChange}
       />
 
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+      <div className="flex-1 flex overflow-hidden">
         <Sidebar
           clusterState={nav}
           activeCluster={activeCluster}
@@ -662,8 +141,8 @@ export default function KubeClient() {
           discoveredResources={discoveredResources}
         />
 
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div style={{ flex: 1, overflow: "hidden" }}>{renderMain()}</div>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-hidden">{renderMain()}</div>
         </div>
       </div>
 
