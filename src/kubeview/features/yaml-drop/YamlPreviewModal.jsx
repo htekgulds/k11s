@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { applyYaml } from "../../api";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 import { Spinner } from "../../components/ui/Spinner";
 
 const COMMON_NAMESPACES = ["default", "kube-system", "kube-public", "kube-node-lease"];
@@ -39,80 +39,47 @@ export function YamlPreviewModal({ open, yamlContent, fileName, clusterId, onClo
 
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.82)",
-        zIndex: 2500,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        animation: "fadeIn 0.13s ease",
-      }}
+      className={cn(
+        "fixed inset-0 z-[2500] flex items-center justify-center",
+        "bg-black/82 animate-[fadeIn_0.13s_ease]"
+      )}
       onClick={handleClose}
     >
       <div
-        style={{
-          background: "#0a0f18",
-          border: "1px solid #0e1f2e",
-          borderRadius: 8,
-          width: "min(720px, 92vw)",
-          maxHeight: "85vh",
-          display: "flex",
-          flexDirection: "column",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.95)",
-          overflow: "hidden",
-        }}
+        className={cn(
+          "w-[min(720px,92vw)] max-h-[85vh] flex flex-col overflow-hidden",
+          "bg-[#0a0f18] border border-[#0e1f2e] rounded-lg",
+          "shadow-[0_24px_64px_rgba(0,0,0,0.95)]"
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          style={{
-            padding: "10px 14px",
-            borderBottom: "1px solid #0a1420",
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-            flexShrink: 0,
-          }}
-        >
-          <span style={{ fontSize: "0.71rem", color: "#39ff8a", ...mono }}>
+        <div className={cn(
+          "px-[14px] py-[10px] border-b border-[#0a1420]",
+          "flex items-center gap-[9px] flex-shrink-0"
+        )}>
+          <span className={cn("text-[0.71rem] text-[#39ff8a] font-mono")}>
             📄 {fileName || "YAML preview"}
           </span>
           <button
             type="button"
             onClick={handleClose}
-            style={{
-              marginLeft: "auto",
-              background: "none",
-              border: "1px solid #1a1a2e",
-              borderRadius: 3,
-              color: "#4a7a8a",
-              cursor: "pointer",
-              padding: "2px 8px",
-              ...mono,
-              fontSize: "0.67rem",
-            }}
+            className={cn(
+              "ml-auto px-[8px] py-[2px] rounded text-[0.67rem] font-mono cursor-pointer",
+              "bg-transparent border border-[#1a1a2e] text-[#4a7a8a]",
+              "hover:bg-[#0a1420] hover:border-[#1a3a4a] hover:text-[#7dd3fc]"
+            )}
           >
             ✕ close
           </button>
         </div>
 
         {/* YAML content */}
-        <div style={{ flex: 1, overflow: "auto", padding: "10px 14px", minHeight: 200 }}>
-          <pre
-            style={{
-              margin: 0,
-              ...mono,
-              fontSize: "0.71rem",
-              lineHeight: 1.9,
-              whiteSpace: "pre-wrap",
-              background: "#020408",
-              border: "1px solid #0e1f2e",
-              borderRadius: 4,
-              padding: 10,
-            }}
-          >
+        <div className="flex-1 overflow-auto p-[10px_14px] min-h-[200px]">
+          <pre className={cn(
+            "m-0 font-mono text-[0.71rem] leading-[1.9] whitespace-pre-wrap",
+            "bg-[#020408] border border-[#0e1f2e] rounded p-[10px]"
+          )}>
             {yamlContent.split("\n").map((line, i) => {
               const ind = line.match(/^(\s*)/)?.[1]?.length ?? 0;
               let c = "#4a7a8a";
@@ -123,7 +90,7 @@ export function YamlPreviewModal({ open, yamlContent, fileName, clusterId, onClo
               else if (/^(\s*)-/.test(line)) c = "#86efac";
               else c = "#fde68a";
               return (
-                <span key={i} style={{ color: c, display: "block" }}>
+                <span key={i} className="block" style={{ color: c }}>
                   {line}
                 </span>
               );
@@ -132,38 +99,23 @@ export function YamlPreviewModal({ open, yamlContent, fileName, clusterId, onClo
         </div>
 
         {/* Namespace override + Apply */}
-        <div
-          style={{
-            padding: "10px 14px",
-            borderTop: "1px solid #0a1420",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            flexShrink: 0,
-            flexWrap: "wrap",
-          }}
-        >
+        <div className={cn(
+          "px-[14px] py-[10px] border-t border-[#0a1420]",
+          "flex items-center gap-[10px] flex-shrink-0 flex-wrap"
+        )}>
           {/* Namespace selector */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ ...mono, fontSize: "0.65rem", color: "#4a7a8a" }}>
+          <div className="flex items-center gap-[6px]">
+            <span className={cn("text-[0.65rem] text-[#4a7a8a] font-mono")}>
               Namespace:
             </span>
             {!useCustomNs ? (
               <select
                 value={namespace}
                 onChange={(e) => setNamespace(e.target.value)}
-                style={{
-                  background: "#080e18",
-                  border: "1px solid #0e1f2e",
-                  borderRadius: 3,
-                  color: "#7dd3fc",
-                  padding: "2px 6px",
-                  ...mono,
-                  fontSize: "0.68rem",
-                  outline: "none",
-                  cursor: "pointer",
-                  maxWidth: 160,
-                }}
+                className={cn(
+                  "px-[6px] py-[2px] rounded text-[0.68rem] font-mono outline-none cursor-pointer",
+                  "bg-[#080e18] border border-[#0e1f2e] text-[#7dd3fc] max-w-[160px]"
+                )}
               >
                 <option value="">— use from YAML —</option>
                 {COMMON_NAMESPACES.map((ns) => (
@@ -176,51 +128,33 @@ export function YamlPreviewModal({ open, yamlContent, fileName, clusterId, onClo
                 value={namespaceInput}
                 onChange={(e) => setNamespaceInput(e.target.value)}
                 placeholder="custom namespace"
-                style={{
-                  background: "#080e18",
-                  border: "1px solid #0e1f2e",
-                  borderRadius: 3,
-                  color: "#7dd3fc",
-                  padding: "2px 6px",
-                  ...mono,
-                  fontSize: "0.68rem",
-                  outline: "none",
-                  width: 140,
-                }}
+                className={cn(
+                  "px-[6px] py-[2px] rounded text-[0.68rem] font-mono outline-none w-[140px]",
+                  "bg-[#080e18] border border-[#0e1f2e] text-[#7dd3fc]"
+                )}
               />
             )}
             <button
               type="button"
               onClick={() => { setUseCustomNs((p) => !p); setNamespace(""); setNamespaceInput(""); }}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#4a7a8a",
-                cursor: "pointer",
-                ...mono,
-                fontSize: "0.6rem",
-                textDecoration: "underline",
-              }}
+              className={cn(
+                "text-[0.6rem] font-mono cursor-pointer underline",
+                "bg-transparent border-none text-[#4a7a8a]",
+                "hover:text-[#7dd3fc]"
+              )}
             >
               {useCustomNs ? "pick" : "custom"}
             </button>
           </div>
 
-          <div style={{ flex: 1 }} />
+          <div className="flex-1" />
 
           {/* Result message */}
           {result && (
-            <span
-              style={{
-                ...mono,
-                fontSize: "0.68rem",
-                color: result.ok ? "#39ff8a" : "#ff6b6b",
-                maxWidth: 280,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
+            <span className={cn(
+              "text-[0.68rem] font-mono max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap",
+              result.ok ? "text-[#39ff8a]" : "text-[#ff6b6b]"
+            )}>
               {result.ok ? "✅ " : "❌ "}{result.message}
             </span>
           )}
@@ -230,19 +164,13 @@ export function YamlPreviewModal({ open, yamlContent, fileName, clusterId, onClo
             type="button"
             onClick={handleApply}
             disabled={applying}
-            style={{
-              background: applying ? "#0a1a0a" : "none",
-              border: "1px solid #1a3a1a",
-              borderRadius: 3,
-              color: applying ? "#1e3a52" : "#39ff8a",
-              cursor: applying ? "not-allowed" : "pointer",
-              padding: "4px 14px",
-              ...mono,
-              fontSize: "0.7rem",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
+            className={cn(
+              "px-[14px] py-[4px] rounded text-[0.7rem] font-mono",
+              "flex items-center gap-[6px] transition-colors",
+              applying
+                ? "bg-[#0a1a0a] border border-[#1a3a1a] text-[#1e3a52] cursor-not-allowed"
+                : "bg-transparent border border-[#1a3a1a] text-[#39ff8a] hover:bg-[#0a1a0a] hover:border-[#39ff8a] cursor-pointer"
+            )}
           >
             {applying && <Spinner />}
             {applying ? "applying…" : "▶ apply"}

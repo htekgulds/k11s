@@ -1,37 +1,24 @@
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 
 export function DropZoneOverlay({ isDragging }) {
   if (!isDragging) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.82)",
-        zIndex: 3000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        animation: "fadeIn 0.15s ease",
-      }}
-    >
-      <div
-        style={{
-          border: "2px dashed #39ff8a",
-          borderRadius: 12,
-          padding: "48px 64px",
-          textAlign: "center",
-          ...mono,
-        }}
-      >
-        <div style={{ fontSize: "2.5rem", marginBottom: 12, color: "#39ff8a" }}>
+    <div className={cn(
+      "fixed inset-0 z-[3000] flex items-center justify-center",
+      "bg-black/82 animate-fade-in"
+    )}>
+      <div className={cn(
+        "border-2 border-dashed rounded-xl p-[48px_64px] text-center",
+        "border-[#39ff8a] font-mono"
+      )}>
+        <div className="text-6xl mb-3 text-[#39ff8a]">
           📄
         </div>
-        <div style={{ fontSize: "1.1rem", color: "#bdd", marginBottom: 8 }}>
+        <div className="text-xl text-[#bdd] mb-2">
           Drop YAML file here
         </div>
-        <div style={{ fontSize: "0.75rem", color: "#4a7a8a" }}>
+        <div className="text-sm text-[#4a7a8a]">
           .yaml or .yml — will be applied to the active cluster
         </div>
       </div>

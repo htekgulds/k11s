@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { k8sInvoke } from "../../api";
-import { mono } from "../../theme";
+import { cn } from "../../utils/cn";
 
 export function PortForwardPanel({ clusterId }) {
   const [forwards, setForwards] = useState([]);
@@ -32,70 +32,50 @@ export function PortForwardPanel({ clusterId }) {
   };
 
   return (
-    <div style={{ borderTop: "1px solid #080e18", padding: "4px 0" }}>
-      <div
-        style={{
-          padding: "4px 10px 2px",
-          color: "#0e1f2e",
-          ...mono,
-          fontSize: "0.57rem",
-          letterSpacing: "0.12em",
-          textTransform: "uppercase",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
+    <div className="border-t border-[#080e18] py-1">
+      <div className={cn(
+        "px-[10px] py-0.5 text-[#0e1f2e] font-mono text-[0.57rem] uppercase tracking-[0.12em]",
+        "flex justify-between items-center"
+      )}>
         Port Forwards
         {forwards.length > 0 && (
-          <span style={{ color: "#fb923c", fontSize: "0.62rem", cursor: "pointer" }} onClick={refresh}>
+          <span className="text-[#fb923c] text-[0.62rem] cursor-pointer" onClick={refresh}>
             ↻
           </span>
         )}
       </div>
       {error && (
-        <div style={{ padding: "2px 10px", fontSize: "0.62rem", color: "#ff4d4d", ...mono }}>
+        <div className={cn("px-[10px] text-[0.62rem] text-[#ff4d4d] font-mono")}>
           {error}
         </div>
       )}
       {forwards.length === 0 ? (
-        <div style={{ padding: "2px 10px", fontSize: "0.62rem", color: "#0e1f2e", ...mono }}>
+        <div className={cn("px-[10px] text-[0.62rem] text-[#0e1f2e] font-mono")}>
           none
         </div>
       ) : (
         forwards.map((pf) => (
           <div
             key={pf.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "3px 9px 3px 10px",
-              fontSize: "0.62rem",
-              ...mono,
-              color: "#39ff8a",
-              borderLeft: "2px solid #fb923c",
-              margin: "2px 0",
-            }}
+            className={cn(
+              "flex items-center justify-between",
+              "px-[9px_10px] py-[3px] font-mono text-[0.62rem]",
+              "text-[#39ff8a] border-l-2 border-[#fb923c] my-[2px]"
+            )}
           >
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+            <span className="truncate flex-1">
               {pf.local_port}:{pf.remote_port}
-              <span style={{ color: "#4a7a8a", fontSize: "0.57rem" }}>
-                {" "}{pf.pod_name}
+              <span className={cn("text-[#4a7a8a] text-[0.57rem] ml-1")}>
+                {pf.pod_name}
               </span>
             </span>
             <button
               type="button"
               onClick={() => handleStop(pf.id)}
-              style={{
-                background: "none",
-                border: "none",
-                color: "#ff4d4d",
-                cursor: "pointer",
-                padding: "1px 4px",
-                fontSize: "0.62rem",
-                ...mono,
-              }}
+              className={cn(
+                "bg-none border-none cursor-pointer",
+                "text-[#ff4d4d] font-mono text-[0.62rem] px-1 py-[1px]"
+              )}
               title={`Stop forward ${pf.local_port}:${pf.remote_port}`}
             >
               ✕
